@@ -1,24 +1,26 @@
 import Objects.Camera;
 import Objects.Object3D;
 import Objects.Sphere;
-import vectors.Point;
+import vectors.Vector3D;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 
-public class main {
+public class Raytracer {
     public static void main(String[] args) {
+        System.out.println(LocalDateTime.now() );
         List<Object3D> object3DList= new ArrayList<>();
         // Create the camera with FOV (e.g., 60 degrees)
         Camera camera = new Camera(
-                new Point(0, 0, 0),   // origin
-                new Point(0, 0, 0),   // rotation
-                1,                    // near plane
+                new Vector3D(0, 0, 0),   // origin
+                new Vector3D(0, 0, 0),   // rotation
+                1.5,                    // near plane
                 500,                    //Far plane
                 800,                  // width
                 600,                  // height
@@ -32,20 +34,20 @@ public class main {
         // In main.java:
 
         Sphere sphere = new Sphere(
-                new Point(255, 0, 0),      // red color
-                new Point(0, 0, 0),        // rotation
-                new Point(0, 0, -5),       // position
-                new Point(1, 1, 1),        // scale
-                1.0                        // radius (smaller)
+                new Vector3D(255, 0, 0),      // red color
+                new Vector3D(0, 0, 0),        // rotation
+                new Vector3D(0, 0, -1.2),       // position
+                new Vector3D(1, 1, 1),        // scale
+                1                       // radius
         );
         object3DList.add(sphere);
 
         Sphere sphere2 = new Sphere(
-                new Point(70,255, 0),      // red color
-                new Point(0, 0, 0),        // rotation
-                new Point(2, 1, -7),       // position
-                new Point(1, 1, 1),        // scale
-                1.5                    // radius (smaller)
+                new Vector3D(70,255, 0),      // red color
+                new Vector3D(0, 0, 0),        // rotation
+                new Vector3D(2, 1, -12),       // position
+                new Vector3D(1, 1, 1),        // scale
+                1.5                    // radius
         );
         object3DList.add(sphere2);
 
@@ -64,6 +66,7 @@ public class main {
         } catch (IOException e) {
             System.out.println("Error saving the image: " + e.getMessage());
         }
+        System.out.println(LocalDateTime.now() );
     }
 
 }

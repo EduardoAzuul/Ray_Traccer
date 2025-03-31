@@ -1,64 +1,103 @@
 package vectors;
 
 public class Vector3D {
-    public Point p;
+    public double x;
+    public double y;
+    public double z;
 
-    /// ////////////////////////////////////////
-    /// PASALO A INGLES!!!!!!!!!!!!!!!!!!!!!!
-    // SIEMPRE NORMALIZA
+    public double getX() {
+        return x;
+    }
+
+    public void setX(double x) {
+        this.x = x;
+    }
+
+    public double getY() {
+        return y;
+    }
+
+    public void setY(double y) {
+        this.y = y;
+    }
+
+    public double getZ() {
+        return z;
+    }
+
+    public void setZ(double z) {
+        this.z = z;
+    }
+
     // Constructor
     public Vector3D(double x, double y, double z) {
-        this.p = new Point(x, y, z);
-
+        setX(x);
+        setY(y);
+        setZ(z);
     }
 
-    // Producto punto
-    public double punto(Vector3D v) {
-        return this.p.x * v.p.x + this.p.y * v.p.y + this.p.z * v.p.z;
+    // Dot product (returns scalar)
+    public double dot(Vector3D p) {
+        return (
+            getX() * p.getX() +
+            getY() * p.getY() +
+            getZ() * p.getZ()
+        );
     }
 
-    // Producto cruz
-    public Vector3D cruz(Vector3D v) {
-        double x = this.p.y * v.p.z - this.p.z * v.p.y;
-        double y = this.p.z * v.p.x - this.p.x * v.p.z;
-        double z = this.p.x * v.p.y - this.p.y * v.p.x;
+    // Cross product (returns new Point)
+    public Vector3D cross(Vector3D p) {
+        double x = getY() * p.getZ() - getZ() * p.getY();
+        double y = getZ() * p.getX() - getX() * getZ();
+        double z = getX() * p.getY() - getY() * p.getX();
         return new Vector3D(x, y, z);
     }
 
-    // Magnitud
-    public double magnitud() {
-        return Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
+    // Magnitude of the point (interpreted as a vector)
+    public double magnitude() {
+        return Math.sqrt(
+            Math.pow(getX(),2) +
+            Math.pow(getY(),2) +
+            Math.pow(getZ(),2)
+        );
     }
 
-    // Normalizar
+    // Normalize the point (turn it into a unit vector)
     public void normalize() {
-        double mag = magnitud();
+        double mag = magnitude();
         if (mag != 0) {
-            p.x /= mag;
-            p.y /= mag;
-            p.z /= mag;
+            setX(getX()/ mag);
+            setY(getY()/ mag);
+            setZ(getZ()/ mag);
         }
     }
 
-    // Amplitud (ángulo respecto al eje X en radianes)
-    public double amplitud() {
-        return Math.acos(p.x / magnitud());
+    // Angle amplitude (angle with respect to the X axis in radians)
+    public double amplitude() {
+        return Math.acos(this.x / magnitude());
     }
 
-    // Suma de vectores
-    public Vector3D suma(Vector3D v) {
-        return new Vector3D(this.p.x + v.p.x, this.p.y + v.p.y, this.p.z + v.p.z);
+    // Add two points (vector sum)
+    public Vector3D add(Vector3D p) {
+        return new Vector3D(this.x + p.x, this.y + p.y, this.z + p.z);
     }
 
-    // Resta de vectores
-    public Vector3D resta(Vector3D v) {
-        return new Vector3D(this.p.x - v.p.x, this.p.y - v.p.y, this.p.z - v.p.z);
+    // Subtract two points (vector difference)
+    public Vector3D subtract(Vector3D p) {
+        return new Vector3D(this.x - p.x, this.y - p.y, this.z - p.z);
     }
 
-    // Multiplicación escalar
-    public Vector3D multiplicacionEscalar(double escalar) {
-        return new Vector3D(this.p.x * escalar, this.p.y * escalar, this.p.z * escalar);
+    // Scalar multiplication (multiply the point by a scalar)
+    public Vector3D multiplyByScalar(double scalar) {
+        return new Vector3D(getX() * scalar, getY() * scalar, getZ() * scalar);
+    }
+
+
+    @Override
+    public String toString() {
+        return "Point: " +
+                "x=" + getX() +
+                ", y=" + getY() +
+                ", z=" + getZ() ;
     }
 }
-
-

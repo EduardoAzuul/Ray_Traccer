@@ -1,7 +1,5 @@
 import Objects.Camera;
 import Objects.Object3D;
-import Objects.Sphere;
-import vectors.Point;
 
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;

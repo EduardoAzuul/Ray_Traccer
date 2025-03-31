@@ -1,19 +1,16 @@
 package Objects;
 
 import vectors.Intersection;
-import vectors.Point;
-import vectors.Ray;
 import vectors.Vector3D;
+import vectors.Ray;
+
 import java.awt.image.BufferedImage;
 import java.util.List;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.ImageIcon;
 
 
 public class Camera {
-    private Point origin;
-    private Point rotation;
+    private Vector3D origin;
+    private Vector3D rotation;
     private double nearplane;
     private double farplane;
     private BufferedImage image;
@@ -22,7 +19,7 @@ public class Camera {
     private double fov;  // Field of view for perspective projection
 
     // Constructor
-    public Camera(Point origin, Point rotation, double nearplane, double farplane, int width, int height, double fov) {
+    public Camera(Vector3D origin, Vector3D rotation, double nearplane, double farplane, int width, int height, double fov) {
         this.origin = origin;
         this.rotation = rotation;
         this.nearplane = nearplane;
@@ -35,9 +32,11 @@ public class Camera {
 
     // Generate the view frustum rays (shot)
     public void shot(List<Object3D> objects) {
+        Ray[][] rays = new Ray[width][height];
+
         for (int i = 0; i < width; i++) {
             for (int j = 0; j < height; j++) {
-                Ray ray = generateRay(i, j);
+                Ray ray = generateRay(rays[i][j] ,i, j);
 
                 double closestDist = Double.MAX_VALUE;
                 int pixelColor = 0xFFFFFF; // Default background color
@@ -45,15 +44,15 @@ public class Camera {
                 for (Object3D obj : objects) {
                     if (obj instanceof Sphere) {
                         Sphere sphere = (Sphere) obj;
-                        Double dist = Intersection.intersect(ray, sphere);
+                        Double dist = Intersection.intersect(ray, sphere,this.nearplane, this.farplane);
 
                         if (dist != null && dist > 0.0 && dist < closestDist) {
                             closestDist = dist;
                             pixelColor = sphere.getColorInt();
 
-                            System.out.println("Ray origin: " + ray.getOrigin() +
+                            /*System.out.println("Ray origin: " + ray.getOrigin() +
                                     " direction: " + ray.getDirection());
-                            System.out.println("Intersection distance: " + dist);
+                            System.out.println("Intersection distance: " + dist);*/
 
                         }
 
@@ -65,7 +64,7 @@ public class Camera {
     }
 
     // Generate a ray based on the camera's parameters
-    private Ray generateRay(int pixelX, int pixelY) {
+    private Ray generateRay(Ray ray, int pixelX, int pixelY) {
         // Aspect ratio calculation
         double aspectRatio = (double) width / height;
 
@@ -79,11 +78,11 @@ public class Camera {
         double screenY = ndcY * tanFov;
 
         // Create direction vector (z is -1 because we look along negative Z)
-        Point direction = new Point(screenX, screenY, -1);
+        Vector3D direction = new Vector3D(screenX, screenY, -1);
         direction.normalize();
 
         // Apply camera rotation if needed (not implemented in current code)
-        return new Ray(origin, direction);
+        return  ray = new Ray(origin, direction);
     }
 
 

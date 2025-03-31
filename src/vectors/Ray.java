@@ -1,15 +1,16 @@
 package vectors;
 
 public class Ray {
-    public Point origin;
-    public Point end;
+    public Vector3D origin;
+    public Vector3D end;
     public double hAngle;
     public double vAngle;
     public double distance;
-    public Point direction;
+    public Vector3D direction;
+
 
     // Constructor
-    public Ray(Point origin, double hAngle, double vAngle) {
+    public Ray(Vector3D origin, double hAngle, double vAngle) {
         this.origin = origin;
         this.hAngle = hAngle;
         this.vAngle = vAngle;
@@ -17,14 +18,14 @@ public class Ray {
     }
 
 
-    public Ray(Point origin, Point direction) {
+    public Ray(Vector3D origin, Vector3D direction) {
         this.origin = origin;
         this.direction= direction;
 
     }
 
 
-    public void normalize(Point p) {
+    public void normalize(Vector3D p) {
         double mag = magnitud(p);
         if (mag != 0) {
             p.x /= mag;
@@ -33,7 +34,7 @@ public class Ray {
         }
     }
 
-    public double magnitud(Point p) {
+    public double magnitud(Vector3D p) {
         return Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z);
     }
 
@@ -48,20 +49,20 @@ public class Ray {
     }
 
     // Get the final point of the ray
-    public Point getPoint(int t) {
+    public Vector3D getPoint(int t) {
         double x = origin.x + t * Math.cos(vAngle) * Math.cos(hAngle);
         double y = origin.y + t * Math.sin(vAngle);
         double z = origin.z + t * Math.cos(vAngle) * Math.sin(hAngle);
-        return new Point(x, y, z);
+        return new Vector3D(x, y, z);
     }
 
     // Get the origin of the ray
-    public Point getOrigin() {
+    public Vector3D getOrigin() {
         return origin;
     }
 
     // Get the direction of the ray as a unit vector
-    public Point getDirection() {
+    public Vector3D getDirection() {
         return direction;
     }
 }
