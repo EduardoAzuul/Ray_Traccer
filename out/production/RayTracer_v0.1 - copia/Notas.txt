@@ -1,2 +1,3 @@
 Normaliza los vectores
 pasa Vector 3D a ingles
+Aumentar el tiempo del raycast al paralelizarlo 
