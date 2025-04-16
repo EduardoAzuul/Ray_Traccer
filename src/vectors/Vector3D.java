@@ -69,13 +69,21 @@ public class Vector3D {
     }
 
     // Normalize the point (turn it into a unit vector)
-    public void normalize() {
+    public Vector3D normalized() {
         double mag = magnitude();
-        if (mag != 0) {
-            setX(getX()/ mag);
-            setY(getY()/ mag);
-            setZ(getZ()/ mag);
-        }
+        if (mag == 0) return new Vector3D(0, 0, 0);
+        return new Vector3D(getX() / mag, getY() / mag, getZ() / mag);
+    }
+
+    public static Vector3D randomColor() {
+        double red = getRandomNumber(0,255);
+        double green = getRandomNumber(0,255);
+        double blue = getRandomNumber(0,255);
+        return new Vector3D(red, green, blue);
+    }
+
+    public static int getRandomNumber(int min, int max) {
+        return (int) ((Math.random() * (max - min)) + min);
     }
 
     // Angle amplitude (angle with respect to the X axis in radians)

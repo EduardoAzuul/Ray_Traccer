@@ -1,7 +1,6 @@
-import Objects.Camera;
-import Objects.Object3D;
-import Objects.Sphere;
-import Objects.Triangle;
+import Obj_Reader.ObjReader;
+import Objects.*;
+import Objects.ObjObject;
 import vectors.Vector3D;
 
 import javax.imageio.ImageIO;
@@ -31,42 +30,46 @@ public class Raytracer {
         // Create the scene
         Scene scene = new Scene(camera);
 
-        // Add objects to the scene (slightly modify object positions)
-        // In main.java:
 
-        Sphere sphere = new Sphere(
-                new Vector3D(255, 0, 0),      // red color
-                new Vector3D(0, 0, 0),        // rotation
-                new Vector3D(0, 0, -1.2),       // position
-                new Vector3D(1, 1, 1),        // scale
-                1                       // radius
-        );
-        //object3DList.add(sphere);
+        String pathObj = "Objs/cube.obj";
+        Vector3D color = new Vector3D(250.0, 1.0, 1.0);
+        Vector3D rotation = new Vector3D();
+        Vector3D position = new Vector3D(0,0,-25);
 
-        Sphere sphere2 = new Sphere(
-                new Vector3D(70,255, 0),      // red color
-                new Vector3D(0, 0, 0),        // rotation
-                new Vector3D(2, 1, -12),       // position
-                new Vector3D(1, 1, 1),        // scale
-                1.5                    // radius
-        );
-        //object3DList.add(sphere2);
+
+
+
+        Vector3D scale = new Vector3D(1.0, 1.0, 1.0);
+
+        //Vector3D color, Vector3D rotation, Vector3D position, Vector3D scale, double radius
+        /*Sphere sphere = new Sphere(color,rotation,position,scale,5 );
+
+        object3DList.add(sphere);*/
         //Vector3D color, Vector3D rotation, Vector3D origin,
-        // Vector3D scale, Vector3D vertex1, Vector3D vertex2, Vector3D vertex3
+        //                    Vector3D scale, Vector3D vertex1, Vector3D vertex2, Vector3D vertex3
+
         Triangle triangle = new Triangle(
-                new Vector3D(70,255, 0),      //color
-                new Vector3D(),
-                new Vector3D(0,0,-50),
-                new Vector3D(),
-                new Vector3D(0,10,0),
-                new Vector3D(10,0,0),
-                new Vector3D(0,0,0)
+                color,
+                rotation,
+                position,
+                scale,
+                new Vector3D(1.000000, -1.000000, -24.000000),
+                new Vector3D(-1.000000, -1.000000, -24.000000),
+                new Vector3D(-1.000000, -1.000000, -26.000000)
+
         );
         object3DList.add(triangle);
 
+
+        ObjObject objObject= new ObjObject(color,rotation,position,scale,pathObj);
+
+        //object3DList.add(objObject);
+
         for (Object3D object3D : object3DList) {
             scene.addObject(object3D);
+
         }
+        System.out.println(scene.toString());
 
 
         // Render the scene and get the image

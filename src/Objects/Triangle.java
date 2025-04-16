@@ -12,7 +12,7 @@ public class Triangle extends Object3D {
     }
 
     public void setVertex1(Vector3D vertex1) {
-        this.vertex1 = vertex1.add(position); //Add the movemente of origin
+        this.vertex1 = vertex1;  // Keep the vertex in local space (no addition to position)
     }
 
     public Vector3D getVertex2() {
@@ -20,7 +20,7 @@ public class Triangle extends Object3D {
     }
 
     public void setVertex2(Vector3D vertex2) {
-        this.vertex2 = vertex2.add(position);
+        this.vertex2 = vertex2;  // Keep the vertex in local space (no addition to position)
     }
 
     public Vector3D getVertex3() {
@@ -28,28 +28,32 @@ public class Triangle extends Object3D {
     }
 
     public void setVertex3(Vector3D vertex3) {
-        this.vertex3 = vertex3.add(position);
+        this.vertex3 = vertex3;  // Keep the vertex in local space (no addition to position)
     }
 
     public Vector3D getOrigin() {
-        return position;
+        return position;  // Assuming position is the world position of the triangle
     }
 
     public void setOrigin(Vector3D origin) {
-        this.position = origin;
+        this.position = origin;  // Set the position, but leave the vertices unchanged (will apply later)
     }
 
+    // Constructor
     public Triangle(Vector3D color, Vector3D rotation, Vector3D origin,
                     Vector3D scale, Vector3D vertex1, Vector3D vertex2, Vector3D vertex3) {
         super(color, rotation, origin, scale);
-        setOrigin(origin);
-        setVertex1(vertex1);
+        setOrigin(origin);  // Set world position
+        setVertex1(vertex1);  // Set local vertex positions
         setVertex2(vertex2);
         setVertex3(vertex3);
-
     }
 
-
-
-
+    // Default constructor
+    public Triangle() {
+        super(new Vector3D(), new Vector3D(), new Vector3D(), new Vector3D());
+        setVertex1(new Vector3D());
+        setVertex2(new Vector3D());
+        setVertex3(new Vector3D());
+    }
 }
