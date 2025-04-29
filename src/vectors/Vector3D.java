@@ -54,7 +54,7 @@ public class Vector3D {
     // Cross product (returns new Point)
     public Vector3D cross(Vector3D p) {
         double x = getY() * p.getZ() - getZ() * p.getY();
-        double y = getZ() * p.getX() - getX() * getZ();
+        double y = getZ() * p.getX() - getX() * p.getZ();
         double z = getX() * p.getY() - getY() * p.getX();
         return new Vector3D(x, y, z);
     }
@@ -69,7 +69,7 @@ public class Vector3D {
     }
 
     // Normalize the point (turn it into a unit vector)
-    public Vector3D normalized() {
+    public Vector3D normalize() {
         double mag = magnitude();
         if (mag == 0) return new Vector3D(0, 0, 0);
         return new Vector3D(getX() / mag, getY() / mag, getZ() / mag);
@@ -91,6 +91,19 @@ public class Vector3D {
         return Math.acos(this.x / magnitude());
     }
 
+    public Vector3D scale(Vector3D scale) {
+        return new Vector3D(getX() * scale.getX(), getY() * scale.getY(), getZ() * scale.getZ());
+    }
+
+    public Vector3D scale(double scale) {
+        return new Vector3D(getX() * scale, getY() * scale, getZ() * scale);
+    }
+
+
+    public double length() {
+        return Math.sqrt(getX() * getX() + getY() * getY() + getZ() * getZ());
+    }
+
     // Add two points (vector sum)
     public Vector3D add(Vector3D p) {
         return new Vector3D(this.x + p.x, this.y + p.y, this.z + p.z);
@@ -104,6 +117,32 @@ public class Vector3D {
     // Scalar multiplication (multiply the point by a scalar)
     public Vector3D multiplyByScalar(double scalar) {
         return new Vector3D(getX() * scalar, getY() * scalar, getZ() * scalar);
+    }
+
+    public Vector3D rotateVector(Vector3D rotation) {
+        double radX = Math.toRadians(rotation.getX());
+        double radY = Math.toRadians(rotation.getY());
+        double radZ = Math.toRadians(rotation.getZ());
+
+        // Rotation around X axis
+        double cosX = Math.cos(radX);
+        double sinX = Math.sin(radX);
+        double y1 = getY() * cosX - getZ() * sinX;
+        double z1 = getY() * sinX + getZ() * cosX;
+
+        // Rotation around Y axis
+        double cosY = Math.cos(radY);
+        double sinY = Math.sin(radY);
+        double x2 = getX() * cosY + z1 * sinY;
+        double z2 = -getX() * sinY + z1 * cosY;
+
+        // Rotation around Z axis
+        double cosZ = Math.cos(radZ);
+        double sinZ = Math.sin(radZ);
+        double x3 = x2 * cosZ - y1 * sinZ;
+        double y3 = x2 * sinZ + y1 * cosZ;
+
+        return new Vector3D(x3, y3, z2);
     }
 
 

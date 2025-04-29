@@ -1,5 +1,8 @@
 package Objects;
 
+import Lights.DirectionLight;
+import Lights.Light;
+import Lights.LightIntersection;
 import vectors.Intersection;
 import vectors.Vector3D;
 import vectors.Ray;
@@ -15,70 +18,11 @@ public class Camera {
     private BufferedImage image;
     private int width;
     private int height;
-    private double fov;  // Field of view for perspective projection
-
-    public Vector3D getOrigin() {
-        return origin;
-    }
-
-    public void setOrigin(Vector3D origin) {
-        this.origin = origin;
-    }
-
-    public Vector3D getRotation() {
-        return rotation;
-    }
-
-    public void setRotation(Vector3D rotation) {
-        this.rotation = rotation;
-    }
-
-    public double getNearplane() {
-        return nearplane;
-    }
-
-    public void setNearplane(double nearplane) {
-        this.nearplane = nearplane;
-    }
-
-    public double getFarplane() {
-        return farplane;
-    }
-
-    public void setFarplane(double farplane) {
-        this.farplane = farplane;
-    }
-
-    public void setImage(BufferedImage image) {
-        this.image = image;
-    }
-
-    public int getWidth() {
-        return width;
-    }
-
-    public void setWidth(int width) {
-        this.width = width;
-    }
-
-    public int getHeight() {
-        return height;
-    }
-
-    public void setHeight(int height) {
-        this.height = height;
-    }
-
-    public double getFov() {
-        return fov;
-    }
-
-    public void setFov(double fov) {
-        this.fov = fov;
-    }
+    private double fov;  // Field of view in degrees
 
     // Constructor
-    public Camera(Vector3D origin, Vector3D rotation, double nearplane, double farplane, int width, int height, double fov) {
+    public Camera(Vector3D origin, Vector3D rotation, double nearplane, double farplane,
+                  int width, int height, double fov) {
         this.origin = origin;
         this.rotation = rotation;
         this.nearplane = nearplane;
@@ -90,81 +34,113 @@ public class Camera {
     }
 
     // Generate the view frustum rays (shot)
-    public void shot(List<Object3D> objects) {
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                Ray ray = generateRay(i, j);
+    public void shot(List<Object3D> objects, List<Light> lights) {
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
 
-                double closestDist = Double.MAX_VALUE;
-                int pixelColor = 0xFFFFFF; // Default background color
 
-                for (Object3D obj : objects) {
-                    if (obj instanceof Sphere sphere) {
-                        double dist = Intersection.sphere(ray, sphere, getNearplane(), getFarplane());
+                Ray ray = generateRay(x, y);
+                int pixelColor = traceRay(ray, objects, lights);
 
-                        if (dist > 0.0 && dist < closestDist) {
-                            closestDist = dist;
-                            pixelColor = sphere.getColorInt();
+                image.setRGB(x, y, pixelColor);
 
-                            /*System.out.println("Ray origin: " + ray.getOrigin() +
-                                    " direction: " + ray.getDirection());
-                            System.out.println("Intersection distance: " + dist);*/
-                        }
-                    }
-
-                    if (obj instanceof Triangle triangle) {
-                        double dist = Intersection.triangle(ray, triangle, getNearplane(), getFarplane(), 0.1);
-                        if (dist > 0.0 && dist < closestDist) {
-                            closestDist = dist;
-                            pixelColor = triangle.getColorInt();
-
-                            /*System.out.println("Ray origin: " + ray.getOrigin() +
-                                    " direction: " + ray.getDirection());
-                            System.out.println("Intersection distance: " + dist);*/
-                        }
-                    }
-
-                    if (obj instanceof ObjObject objObject) {
-                        double dist = Intersection.obj(ray, objObject, getNearplane(), getFarplane(), 0.1);
-                        if (dist > 0.0 && dist < closestDist) {
-                            closestDist = dist;
-                            pixelColor = objObject.getColorInt();
-
-                            /*System.out.println("Ray origin: " + ray.getOrigin() +
-                                    " direction: " + ray.getDirection());
-                            System.out.println("Intersection distance: " + dist);*/
-                        }
-                    }
-                }
-
-                image.setRGB(i, j, pixelColor);
             }
         }
     }
 
-    // Generate a ray based on the camera's parameters
-    private Ray generateRay(int pixelX, int pixelY) {
-        // Aspect ratio calculation
-        double aspectRatio = (double) width / height;
+    private int traceRay(Ray ray, List<Object3D> objects, List<Light> lights) {
+        double closestDist = Double.MAX_VALUE;
+        Object3D closestObject = null;
+        Object3D triangleHit = null;
+        Triangle triaAux = null;
 
-        // Convert pixel coordinates to normalized device coordinates
-        double ndcX = (2.0 * ((pixelX + 0.5) / width) - 1.0);
-        double ndcY = 1.0 - 2.0 * ((pixelY + 0.5) / height);
+        for (Object3D obj : objects) {
+            double dist = -1.0;
 
-        // Adjust for FOV and aspect ratio
-        double tanFov = Math.tan(Math.toRadians(fov / 2.0));
-        double screenX = ndcX * aspectRatio * tanFov;
-        double screenY = ndcY * tanFov;
+            if (obj instanceof Sphere sphere) {
+                dist = Intersection.sphere(ray, sphere, nearplane, farplane);
+            }
+            else if (obj instanceof Triangle triangle) {
+                dist = Intersection.triangle(ray, triangle, nearplane, farplane, 1e-4);
+                triaAux = triangle;
 
-        // Create direction vector (z is -1 because we look along negative Z)
-        Vector3D direction = new Vector3D(screenX, screenY, -1);
-        Vector3D normalizedDir = direction.normalized();
 
-        // Apply camera rotation if needed (not implemented in current code)
-        return new Ray(origin, normalizedDir);
+            }
+            else if (obj instanceof ObjObject objObject) {
+                triaAux = Intersection.objTriangleIntersected(ray, objObject, nearplane, farplane, 1e-4);
+
+                if(triaAux != null) {
+                    dist = Intersection.triangle(ray, triaAux, nearplane, farplane, 1e-4);
+                }
+
+            }
+
+            // Simplified condition - no need to check dist > 0 if checking dist > nearplane
+            if (dist > nearplane && dist < farplane && dist < closestDist) {
+                closestDist = dist;
+                closestObject = obj;
+                triangleHit = triaAux;
+
+            }
+        }
+
+        if(closestObject == null) {
+            return 0x000000; // Return black if no intersection
+        }
+
+
+        // Calculate the intersection point
+        Vector3D intersectionPoint = ray.getOrigin().add(ray.getDirection().scale(closestDist));
+
+        // Create a LightIntersection object to handle lighting calculations
+        LightIntersection lightIntersection = new LightIntersection(
+                objects,         // All objects in the scene
+                lights,          // All lights in the scene
+                closestObject,   // The object that was hit
+                ray.getOrigin(), // Origin of the ray
+                ray.getDirection() // Direction of the ray
+        );
+
+        // Calculate the final color with lighting
+        if (triangleHit != null) {
+            //System.out.println("Triangle intersection: " + triangleHit);
+            return lightIntersection.lightsIntersection(triangleHit, intersectionPoint);
+        }
+
+        return closestObject.getColorInt();
+
     }
 
-    // Getter for the rendered image
+    // Improved ray generation with correct FOV handling
+    private Ray generateRay(int pixelX, int pixelY) {
+        // 1. Aspect ratio (proporción de la imagen)
+        double aspectRatio = (double) width / height;
+
+        // 2. Escala de FOV (campo de visión vertical)
+        double fovScale = Math.tan(Math.toRadians(fov * 0.5));
+
+        // 3. Coordenadas normalizadas del píxel (NDC)
+        double ndcX = (2.0 * (pixelX + 0.5) / width - 1.0); // va de -1 a 1
+        double ndcY = 1.0 - (2.0 * (pixelY + 0.5) / height); // va de 1 a -1 (invertido)
+
+        // 4. Escalar según FOV y proporción de aspecto
+        double cameraX = ndcX * aspectRatio * fovScale;
+        double cameraY = ndcY * fovScale;
+
+        // 5. Crear el vector de dirección hacia -Z (mirando al fondo de la escena)
+        Vector3D direction = new Vector3D(cameraX, cameraY, -1).normalize();
+
+        // 6. Aplicar rotación de la cámara si existe
+        if (rotation != null && (rotation.getX() != 0 || rotation.getY() != 0 || rotation.getZ() != 0)) {
+            direction = direction.rotateVector(rotation);
+        }
+
+        // 7. Devolver el rayo desde el origen de la cámara hacia la dirección calculada
+        return new Ray(origin, direction);
+    }
+
+
+
     public BufferedImage getImage() {
         return image;
     }

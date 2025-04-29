@@ -1,5 +1,6 @@
 package Objects;
 
+import Materials.Material;
 import vectors.Vector3D;
 
 public abstract class Object3D {
@@ -7,6 +8,7 @@ public abstract class Object3D {
     public Vector3D position = new Vector3D(0, 0, 0);
     public Vector3D rotation = new Vector3D(0, 0, 0);
     public Vector3D color = new Vector3D(0, 255, 0);
+    private Material material;
 
 
     public Object3D(Vector3D color, Vector3D rotation, Vector3D position, Vector3D scale) {

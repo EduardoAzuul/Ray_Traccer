@@ -1,3 +1,12 @@
 Normaliza los vectores
 pasa Vector 3D a ingles
-Aumentar el tiempo del raycast al paralelizarlo 
+Aumentar el tiempo del raycast al paralelizarlo
+
+Lights:
+Directional
+Point
+spot
+
+Para calcular la interseccion del objeto se le asigna un cubo que lo cubre (Axis-Aligned Bounding Box - AABB) :)
+
+Agregar lector de normal
