@@ -2,22 +2,26 @@ package Objects;
 
 import Tools.ObjReader;
 import vectors.Vector3D;
+import Objects.WrapperBoxes.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ObjObject extends Object3D {
     private List<Triangle> triangleList;
     private Cube cube;
+    private BVHNode bvhRoot;
 
     public ObjObject(Vector3D color, Vector3D rotation, Vector3D position, Vector3D scale, String objPath) {
         super(color, rotation, position, scale);
         loadFromObjFile(objPath);
         setCube();
+        buildBVH();
+        //System.out.println("Altura: "+ ((BVHInternalNode) bvhRoot.getHeight()));
     }
 
     private void loadFromObjFile(String objPath) {
         try {
-            // Read the triangle list from the OBJ file and apply transformations
             List<Triangle> loadedTriangles = ObjReader.triangleList(
                     getColor(), getRotation(), getPosition(), getScale(), objPath);
 
@@ -36,17 +40,14 @@ public class ObjObject extends Object3D {
         }
     }
 
-    // Set the list of triangles
     public void setTriangleList(List<Triangle> triangleList) {
         this.triangleList = triangleList;
     }
 
-    // Get the list of triangles
     public List<Triangle> getTriangleList() {
         return triangleList;
     }
 
-    // Returns true if the model was loaded successfully
     public boolean isLoaded() {
         return triangleList != null && !triangleList.isEmpty();
     }
@@ -56,33 +57,68 @@ public class ObjObject extends Object3D {
     }
 
     public void setCube(Vector3D min, Vector3D max) {
-        this.cube = new Cube(min,max);
+        this.cube = new Cube(min, max);
     }
 
     private void setCube() {
-        double minx = Double.MAX_VALUE;
-        double maxx = Double.MIN_VALUE;
-        double miny = Double.MAX_VALUE;
-        double maxy = Double.MIN_VALUE;
-        double minz = Double.MAX_VALUE;
-        double maxz = Double.MIN_VALUE;
+        if (!isLoaded()) {
+            this.cube = new Cube(new Vector3D(0, 0, 0), new Vector3D(0, 0, 0));
+            return;
+        }
+
+        Vector3D min = new Vector3D(Double.MAX_VALUE, Double.MAX_VALUE, Double.MAX_VALUE);
+        Vector3D max = new Vector3D(Double.MIN_VALUE, Double.MIN_VALUE, Double.MIN_VALUE);
 
         for (Triangle triangle : getTriangleList()) {
             Vector3D[] vertices = { triangle.getVertex1(), triangle.getVertex2(), triangle.getVertex3() };
 
             for (Vector3D v : vertices) {
-                if (v.getX() < minx) minx = v.getX();
-                if (v.getX() > maxx) maxx = v.getX();
-                if (v.getY() < miny) miny = v.getY();
-                if (v.getY() > maxy) maxy = v.getY();
-                if (v.getZ() < minz) minz = v.getZ();
-                if (v.getZ() > maxz) maxz = v.getZ();
+                min = new Vector3D(
+                        Math.min(min.getX(), v.getX()),
+                        Math.min(min.getY(), v.getY()),
+                        Math.min(min.getZ(), v.getZ())
+                );
+                max = new Vector3D(
+                        Math.max(max.getX(), v.getX()),
+                        Math.max(max.getY(), v.getY()),
+                        Math.max(max.getZ(), v.getZ())
+                );
             }
         }
 
-        Vector3D min = new Vector3D(minx, miny, minz);
-        Vector3D max = new Vector3D(maxx, maxy, maxz);
-
         setCube(min, max);
+    }
+
+    public void buildBVH() {
+        if (!isLoaded()) return;
+
+        // Usar la nueva clase BVHGenerator
+        BVHGenerator bvhGenerator = new BVHGenerator(triangleList);
+        this.bvhRoot = bvhGenerator.buildBVH();
+    }
+
+    public BVHNode getBvhRoot() {
+        return bvhRoot;
+    }
+
+    public boolean containsPoint(Vector3D point) {
+        return cube != null && cube.contains(point);
+    }
+
+    public boolean intersects(ObjObject other) {
+        return this.cube != null && other.cube != null && this.cube.intersects(other.cube);
+    }
+
+    public Vector3D getCenter() {
+        return cube != null ? cube.getCenter() : new Vector3D(0, 0, 0);
+    }
+
+    public Vector3D getDimensions() {
+        return cube != null ? cube.getDimensions() : new Vector3D(0, 0, 0);
+    }
+
+    public void updateAABB() {
+        setCube();
+        buildBVH();
     }
 }

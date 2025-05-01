@@ -1,6 +1,5 @@
 package Objects;
 
-import Lights.DirectionLight;
 import Lights.Light;
 import Lights.LightIntersection;
 import vectors.Intersection;

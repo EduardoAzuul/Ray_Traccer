@@ -36,10 +36,22 @@ public class Vector3D {
         setZ(z);
     }
 
+
     public Vector3D() {
         setX(0);
         setY(0);
         setZ(0);
+    }
+
+
+    public double getComponent(int index) {
+        switch (index) {
+            case 0: return getX();
+            case 1: return getY();
+            case 2: return getZ();
+            default:
+                throw new IndexOutOfBoundsException("Index must be 0 (x), 1 (y), or 2 (z)");
+        }
     }
 
     // Dot product (returns scalar)

@@ -1,5 +1,5 @@
-import Lights.DirectionLight;
-import Lights.Light;
+import Lights.SpotLight;
+import Lights.PointLight;
 import Objects.*;
 import Objects.ObjObject;
 import vectors.Vector3D;
@@ -26,8 +26,8 @@ public class Raytracer {
                     new Vector3D(0, 0, 0),   // rotation
                     1.5,                    // near plane
                     500,                    // far plane
-                    800,                    // width
-                    600,                    // height
+                    3840,                    // width
+                    2160,                    // height
                     60                      // field of view
             );
 
@@ -35,32 +35,30 @@ public class Raytracer {
             Scene scene = new Scene(camera);
 
             // Add objects to the scene
-            String pathObj = "Objs/SmallTeapot.obj";
+            String pathObj = "Objs/cube.obj";
             File objFile = new File(pathObj);
             if (!objFile.exists()) {
                 System.err.println("Warning: OBJ file not found at " + objFile.getAbsolutePath());
             }
 
             Vector3D color = new Vector3D(20.0, 100.0, 185.0);
-            Vector3D rotation = new Vector3D(0,35,0);
-            Vector3D position = new Vector3D(0, -5, -15);
-            Vector3D scale = new Vector3D(2.0, 2.0, 2.0);
+            Vector3D rotation = new Vector3D(0,0,0);
+            Vector3D position = new Vector3D(0, 0, -100);
+            Vector3D scale = new Vector3D(1.0, 1.0, 1.0);
 
 
             // Add OBJ object
-            ObjObject objObject = new ObjObject(color, rotation, position, scale, pathObj);
-            object3DList.add(objObject);
+            //ObjObject objObject = new ObjObject(color, rotation, position, scale, pathObj);
+            //object3DList.add(objObject);
 
-            pathObj="Objs/square.obj";
-            color = Vector3D.randomColor();
+            pathObj="Objs/Angle.obj";
+            color = new Vector3D(255,252,240);
 
-            position = new Vector3D(0,0, -25);
-            scale = new Vector3D(8.0, 8.0, 1.0);
+            position = new Vector3D(0,-25, -50);
+            rotation = new Vector3D(0,20, 0);
+            scale = new Vector3D(8.0, 8.0, 4.0);
             ObjObject objObject2 = new ObjObject(color, rotation, position, scale, pathObj);
             object3DList.add(objObject2);
-
-
-
 
 
 
@@ -72,16 +70,29 @@ public class Raytracer {
 
 
             /************************************************************/
-            /************************************************/
+            /********************   LIGHTS   ****************************/
 
             Vector3D lightPosition = new Vector3D(0,0,0);
             Vector3D lightColor = new Vector3D(255,255,255);
-            Vector3D lightdirection = new Vector3D(0,0,1);
-            DirectionLight directionLight = new DirectionLight(
-                    lightPosition,lightColor, 9.5, 4, lightdirection
+            Vector3D lightdirection = new Vector3D(0,0,-1);
+            SpotLight spotLight = new SpotLight(
+                    lightPosition,lightColor, 0.5, 2,45, lightdirection
             );
 
-            scene.addLight(directionLight);
+            //scene.addLight(spotLight);
+
+            lightPosition = new Vector3D(10,20,-15);
+
+            lightColor = new Vector3D(255,255,255);
+            PointLight pointLight= new PointLight (lightPosition,lightColor, 65);
+
+            scene.addLight(pointLight);
+
+            lightPosition = new Vector3D(-10,20,-15);
+            lightColor = new Vector3D(0,0,255);
+            PointLight pointLight2 = new PointLight (lightPosition,lightColor, 30);
+            scene.addLight(pointLight2);
+
 
             //CAMERA INTERSECTION:
             //List<Object3D> object3DList, List<Light> lightList,

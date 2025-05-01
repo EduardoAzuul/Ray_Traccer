@@ -8,5 +8,14 @@ Point
 spot
 
 Para calcular la interseccion del objeto se le asigna un cubo que lo cubre (Axis-Aligned Bounding Box - AABB) :)
+BVH implementatioc with a Surface Area Heuristic (SAH):
 
-Agregar lector de normal
+
+Matte
+Phong
+
+Reflex
+refrac
+light emiter ?
+Scatering
+
