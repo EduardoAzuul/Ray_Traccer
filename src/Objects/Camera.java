@@ -7,14 +7,18 @@ import vectors.Vector3D;
 import vectors.Ray;
 
 import java.awt.image.BufferedImage;
-import java.util.ArrayDeque;
 import java.util.List;
-import java.util.Queue;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class Camera{
+/**
+ * The Camera class is responsible for simulating a virtual camera in a 3D scene.
+ * It casts rays through a view frustum to detect object intersections and calculates
+ * pixel colors using lighting information. Rendering is performed in parallel using tiles.
+ *
+ * @author José Eduardo Moreno Paredes
+ */
+public class Camera {
     private Vector3D origin;
     private Vector3D rotation;
     private double nearplane;
@@ -22,15 +26,29 @@ public class Camera{
     private BufferedImage image;
     private int width;
     private int height;
-    private double fov;  // Field of view in degrees
+    private double fov;
 
     private final int TileSize = 32;
 
+    /**
+     * Returns the tile size used for parallel rendering.
+     * @return tile size in pixels.
+     */
     public int getTileSize() {
         return TileSize;
     }
 
-    // Constructor
+    /**
+     * Constructs a Camera object.
+     *
+     * @param origin    The position of the camera.
+     * @param rotation  The rotation (orientation) of the camera.
+     * @param nearplane Near clipping plane distance.
+     * @param farplane  Far clipping plane distance.
+     * @param width     Width of the image in pixels.
+     * @param height    Height of the image in pixels.
+     * @param fov       Field of view in degrees.
+     */
     public Camera(Vector3D origin, Vector3D rotation, double nearplane, double farplane,
                   int width, int height, double fov) {
         this.origin = origin;
@@ -43,34 +61,43 @@ public class Camera{
         this.image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
     }
 
-    // Generate the view frustum rays (shot)
+    /**
+     * Renders the scene by shooting rays from the camera through each pixel.
+     * This method uses tile-based multithreading for parallelism.
+     *
+     * @param objects The list of 3D objects in the scene.
+     * @param lights  The list of light sources in the scene.
+     */
     public void shot(List<Object3D> objects, List<Light> lights) {
         ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
-        int TILE_SIZE= getTileSize();
+        int TILE_SIZE = getTileSize();
         for (int tileY = 0; tileY < height; tileY += TILE_SIZE) {
             for (int tileX = 0; tileX < width; tileX += TILE_SIZE) {
                 final int startX = tileX;
                 final int startY = tileY;
 
-                executor.execute(() -> {
-                    // Process an entire tile in a single task
-                    renderTile(startX, startY, TILE_SIZE, objects, lights);
-                });
+                executor.execute(() -> renderTile(startX, startY, TILE_SIZE, objects, lights));
             }
         }
 
-        executor.shutdown();    //No more task will be submited, executor goes into offline mode
+        executor.shutdown();
 
         try {
             executor.awaitTermination(Long.MAX_VALUE, java.util.concurrent.TimeUnit.NANOSECONDS);
         } catch (InterruptedException e) {
-            System.out.println("Interrupted on paralelization of ray shoting");
+            System.out.println("Interrupted on parallelization of ray shooting");
         }
-
-
     }
 
+    /**
+     * Traces a single ray and determines its resulting color based on intersections and lighting.
+     *
+     * @param ray     The ray to trace.
+     * @param objects The list of 3D objects in the scene.
+     * @param lights  The list of light sources in the scene.
+     * @return The RGB color value resulting from the ray's interaction.
+     */
     private int traceRay(Ray ray, List<Object3D> objects, List<Light> lights) {
         double closestDist = Double.MAX_VALUE;
         Object3D closestObject = null;
@@ -82,101 +109,86 @@ public class Camera{
 
             if (obj instanceof Sphere sphere) {
                 dist = Intersection.sphere(ray, sphere, nearplane, farplane);
-            }
-            else if (obj instanceof Triangle triangle) {
+            } else if (obj instanceof Triangle triangle) {
                 dist = Intersection.triangle(ray, triangle, nearplane, farplane, 1e-4);
                 triaAux = triangle;
-
-
-            }
-            else if (obj instanceof ObjObject objObject) {
+            } else if (obj instanceof ObjObject objObject) {
                 triaAux = Intersection.objTriangleIntersected(ray, objObject, nearplane, farplane, 1e-4);
 
-                if(triaAux != null) {
+                if (triaAux != null) {
                     dist = Intersection.triangle(ray, triaAux, nearplane, farplane, 1e-4);
                 }
-
             }
 
-            // Simplified condition - no need to check dist > 0 if checking dist > nearplane
             if (dist > nearplane && dist < farplane && dist < closestDist) {
                 closestDist = dist;
                 closestObject = obj;
                 triangleHit = triaAux;
-
             }
         }
 
-        if(closestObject == null) {
-            return 0x000000; // Return black if no intersection
+        if (closestObject == null) {
+            return 0x000000; // No intersection, return black
         }
 
-
-        // Calculate the intersection point
         Vector3D intersectionPoint = ray.getOrigin().add(ray.getDirection().scale(closestDist));
 
-        // Create a LightIntersection object to handle lighting calculations
         LightIntersection lightIntersection = new LightIntersection(
-                objects,         // All objects in the scene
-                lights,          // All lights in the scene
-                closestObject,   // The object that was hit
-                ray.getOrigin(), // Origin of the ray
-                ray.getDirection() // Direction of the ray
-        );
+                objects, lights, closestObject, ray.getOrigin(), ray.getDirection());
 
-        // Calculate the final color with lighting
         if (triangleHit != null) {
-            //System.out.println("Triangle intersection: " + triangleHit);
             return lightIntersection.lightsIntersection(triangleHit, intersectionPoint);
         }
 
         return closestObject.getColorInt();
-
     }
 
-    // Improved ray generation with correct FOV handling
+    /**
+     * Generates a ray from the camera through a specific pixel.
+     *
+     * @param pixelX The x-coordinate of the pixel.
+     * @param pixelY The y-coordinate of the pixel.
+     * @return The generated ray.
+     */
     private Ray generateRay(int pixelX, int pixelY) {
-        // 1. Aspect ratio (proporción de la imagen)
         double aspectRatio = (double) width / height;
-
-        // 2. Escala de FOV (campo de visión vertical)
         double fovScale = Math.tan(Math.toRadians(fov * 0.5));
-
-        // 3. Coordenadas normalizadas del píxel (NDC)
-        double ndcX = (2.0 * (pixelX + 0.5) / width - 1.0); // va de -1 a 1
-        double ndcY = 1.0 - (2.0 * (pixelY + 0.5) / height); // va de 1 a -1 (invertido)
-
-        // 4. Escalar según FOV y proporción de aspecto
+        double ndcX = (2.0 * (pixelX + 0.5) / width - 1.0);
+        double ndcY = 1.0 - (2.0 * (pixelY + 0.5) / height);
         double cameraX = ndcX * aspectRatio * fovScale;
         double cameraY = ndcY * fovScale;
 
-        // 5. Crear el vector de dirección hacia -Z (mirando al fondo de la escena)
         Vector3D direction = new Vector3D(cameraX, cameraY, -1).normalize();
 
-        // 6. Aplicar rotación de la cámara si existe
         if (rotation != null && (rotation.getX() != 0 || rotation.getY() != 0 || rotation.getZ() != 0)) {
             direction = direction.rotateVector(rotation);
         }
 
-        // 7. Devolver el rayo desde el origen de la cámara hacia la dirección calculada
         return new Ray(origin, direction);
     }
 
-
+    /**
+     * Returns the rendered image after calling {@link #shot(List, List)}.
+     *
+     * @return The BufferedImage containing the rendered scene.
+     */
     public BufferedImage getImage() {
         return image;
     }
 
-    /****************************************************/
-    /***********Paralelization***************************/
-
-
+    /**
+     * Renders a specific tile of the image by generating and tracing rays for each pixel.
+     *
+     * @param startX  The starting x-coordinate of the tile.
+     * @param startY  The starting y-coordinate of the tile.
+     * @param tileSize The size of the tile (in pixels).
+     * @param objects  The list of 3D objects in the scene.
+     * @param lights   The list of light sources in the scene.
+     */
     private void renderTile(int startX, int startY, int tileSize, List<Object3D> objects, List<Light> lights) {
-        // Calculate the end coordinates ensuring we don't go beyond image boundaries
         int endX = Math.min(startX + tileSize, width);
         int endY = Math.min(startY + tileSize, height);
 
-        // Process all pixels in this tile
         for (int y = startY; y < endY; y++) {
             for (int x = startX; x < endX; x++) {
                 Ray ray = generateRay(x, y);
@@ -185,8 +197,4 @@ public class Camera{
             }
         }
     }
-
-
-
-
 }

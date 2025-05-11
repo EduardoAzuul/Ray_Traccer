@@ -1,0 +1,27 @@
+Normaliza los vectores
+pasa Vector 3D a ingles
+Aumentar el tiempo del raycast al paralelizarlo
+
+Lights:
+Directional
+Point
+spot
+
+Para calcular la interseccion del objeto se le asigna un cubo que lo cubre (Axis-Aligned Bounding Box - AABB) :)
+BVH implementatioc with a Surface Area Heuristic (SAH):
+
+
+Gouraud Shading investigar
+Kuk terrance?
+
+Phong shading
+Investigar Bling
+
+Matte
+Phong
+
+Reflex
+refrac
+light emiter ?
+Scatering
+
