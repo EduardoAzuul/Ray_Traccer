@@ -3,9 +3,9 @@ package Lights;
 import vectors.Vector3D;
 
 public class SpotLight extends Light {
-    double radius;
-    Vector3D direction;
-    double angle;
+    private double radius;
+    private Vector3D direction;
+    private double angle;
 
 
     public double getRadius() {

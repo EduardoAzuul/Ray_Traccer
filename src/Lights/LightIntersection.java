@@ -8,7 +8,6 @@ import vectors.Intersection;
 import vectors.Ray;
 import vectors.Vector3D;
 
-import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -114,11 +113,20 @@ public class LightIntersection {
                 }
             }
 
-            if (collision) { // Light is blocked, try next light
+            if (collision && !(light instanceof DirectionalLight)) { // Light is blocked, try next light
                 continue;
             }
 
-            // Handle directional light
+            //Handeling of Directiona Light
+            if(light instanceof DirectionalLight){
+                if (object instanceof Triangle) {
+                    int lightColor = LambertianLight((Triangle) object, point, (DirectionalLight) light);
+                    finalColor = blendColors(finalColor, lightColor);
+                    anyLightHits = true;
+                }
+            }
+
+            // Handle Spotlight
             if (light instanceof SpotLight) {
                 if (SpotLightHit((SpotLight) light, point)) {
                     if (object instanceof Triangle) {
@@ -201,7 +209,7 @@ public class LightIntersection {
 
 
     public int LambertianLight(Triangle object, Vector3D point, Light light) {
-        Vector3D normal = object.getNormal().normalize().multiplyByScalar(-1);
+        Vector3D normal = object.getNormal(point).normalize().multiplyByScalar(-1);
 
         // Calculate light direction vector from point to light source
         Vector3D lightDir;
@@ -210,6 +218,18 @@ public class LightIntersection {
         if(light instanceof SpotLight){
             // For directional lights, negate the light's direction vector
             lightDir = ((SpotLight) light).getDirection().normalize().multiplyByScalar(-1);
+            Vector3D lightVector = light.getPosition().subtract(point);
+            double distance = lightVector.length();
+            lightDir = lightVector.normalize();
+
+            // Apply light attenuation for point lights (inverse square law)
+            double attenuation = 1.0 / (1.0 + 0.05*distance * distance);
+            intensity *= attenuation;
+
+        }else if (light instanceof DirectionalLight) {
+            lightDir = ((DirectionalLight) light).getDirection();
+
+
         } else if (light instanceof PointLight) {
             // For point lights, calculate direction and apply distance attenuation
             Vector3D lightVector = light.getPosition().subtract(point);
@@ -217,7 +237,7 @@ public class LightIntersection {
             lightDir = lightVector.normalize();
 
             // Apply light attenuation for point lights (inverse square law)
-            double attenuation = 1.0 / (1.0 + 0.09 * distance + 0.032 * distance * distance);
+            double attenuation = 1.0 / (1.0 + 0.05*distance * distance);
             intensity *= attenuation;
         } else {
             // Default case
@@ -233,7 +253,11 @@ public class LightIntersection {
         }
 
         // Get colors
-        int objectColor = object.getColorInt(); // 0xRRGGBB
+        return addColorsWithDotNL (object.getColorInt(), light, dotNL, intensity);
+    }
+
+    private int addColorsWithDotNL(int objectColor, Light light, double dotNL, double intensity) {
+
         int lightColor = light.getColorint(); // 0xRRGGBB
 
         // Extract components

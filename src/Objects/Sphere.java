@@ -4,7 +4,7 @@ import vectors.Vector3D;
 
 public class Sphere extends Object3D {
     private double radius;
-    //Ei
+
     // Constructor
     public Sphere(Vector3D color, Vector3D rotation, Vector3D position, Vector3D scale, double radius) {
         super(color, rotation, position, scale);

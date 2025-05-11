@@ -15,9 +15,21 @@ public class ObjObject extends Object3D {
     public ObjObject(Vector3D color, Vector3D rotation, Vector3D position, Vector3D scale, String objPath) {
         super(color, rotation, position, scale);
         loadFromObjFile(objPath);
+        rotateNormals();
         setCube();
         buildBVH();
-        //System.out.println("Altura: "+ ((BVHInternalNode) bvhRoot.getHeight()));
+    }
+
+    private void rotateNormals(){
+        for (Triangle triangle : triangleList) {
+            Vector3D normal1= triangle.getNormalEdge1();
+            Vector3D normal2= triangle.getNormalEdge2();
+            Vector3D normal3= triangle.getNormalEdge3();
+
+            triangle.setNormalEdge1(normal1.rotateVector(getRotation()));
+            triangle.setNormalEdge2(normal2.rotateVector(getRotation()));
+            triangle.setNormalEdge3(normal3.rotateVector(getRotation()));
+        }
     }
 
     private void loadFromObjFile(String objPath) {

@@ -11,6 +11,12 @@ Para calcular la interseccion del objeto se le asigna un cubo que lo cubre (Axis
 BVH implementatioc with a Surface Area Heuristic (SAH):
 
 
+Gouraud Shading investigar
+Kuk terrance?
+
+Phong shading
+Investigar Bling
+
 Matte
 Phong
 

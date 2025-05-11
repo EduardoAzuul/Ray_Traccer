@@ -7,9 +7,14 @@ import vectors.Vector3D;
 import vectors.Ray;
 
 import java.awt.image.BufferedImage;
+import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class Camera {
+public class Camera{
     private Vector3D origin;
     private Vector3D rotation;
     private double nearplane;
@@ -18,6 +23,12 @@ public class Camera {
     private int width;
     private int height;
     private double fov;  // Field of view in degrees
+
+    private final int TileSize = 32;
+
+    public int getTileSize() {
+        return TileSize;
+    }
 
     // Constructor
     public Camera(Vector3D origin, Vector3D rotation, double nearplane, double farplane,
@@ -34,17 +45,30 @@ public class Camera {
 
     // Generate the view frustum rays (shot)
     public void shot(List<Object3D> objects, List<Light> lights) {
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
+        ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
+        int TILE_SIZE= getTileSize();
+        for (int tileY = 0; tileY < height; tileY += TILE_SIZE) {
+            for (int tileX = 0; tileX < width; tileX += TILE_SIZE) {
+                final int startX = tileX;
+                final int startY = tileY;
 
-                Ray ray = generateRay(x, y);
-                int pixelColor = traceRay(ray, objects, lights);
-
-                image.setRGB(x, y, pixelColor);
-
+                executor.execute(() -> {
+                    // Process an entire tile in a single task
+                    renderTile(startX, startY, TILE_SIZE, objects, lights);
+                });
             }
         }
+
+        executor.shutdown();    //No more task will be submited, executor goes into offline mode
+
+        try {
+            executor.awaitTermination(Long.MAX_VALUE, java.util.concurrent.TimeUnit.NANOSECONDS);
+        } catch (InterruptedException e) {
+            System.out.println("Interrupted on paralelization of ray shoting");
+        }
+
+
     }
 
     private int traceRay(Ray ray, List<Object3D> objects, List<Light> lights) {
@@ -139,8 +163,30 @@ public class Camera {
     }
 
 
-
     public BufferedImage getImage() {
         return image;
     }
+
+    /****************************************************/
+    /***********Paralelization***************************/
+
+
+    private void renderTile(int startX, int startY, int tileSize, List<Object3D> objects, List<Light> lights) {
+        // Calculate the end coordinates ensuring we don't go beyond image boundaries
+        int endX = Math.min(startX + tileSize, width);
+        int endY = Math.min(startY + tileSize, height);
+
+        // Process all pixels in this tile
+        for (int y = startY; y < endY; y++) {
+            for (int x = startX; x < endX; x++) {
+                Ray ray = generateRay(x, y);
+                int pixelColor = traceRay(ray, objects, lights);
+                image.setRGB(x, y, pixelColor);
+            }
+        }
+    }
+
+
+
+
 }

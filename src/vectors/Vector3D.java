@@ -5,6 +5,12 @@ public class Vector3D {
     public double y;
     public double z;
 
+    public Vector3D(Vector3D vector) {
+        setX(vector.getX());
+        setY(vector.getY());
+        setZ(vector.getZ());
+    }
+
     public double getX() {
         return x;
     }

@@ -9,7 +9,9 @@ import java.util.List;
 public class BVHGenerator {
     private List<Triangle> triangleList;
     private int maxBVHDepth;
-    private final double marginFactor = 0.1; // 10% margin for boxes
+    private final double marginFactor = 0.05; // 5% margin for boxes
+    private final int trianglesPerLeaf = 4;
+    private final int splitCount = 8;
 
     // Statistics properties
     private int minTrianglesInLeaf = Integer.MAX_VALUE;
@@ -29,16 +31,16 @@ public class BVHGenerator {
         this.maxBVHDepth = maxDepth > 0 ? maxDepth : calculateOptimalDepth(triangleList.size());
     }
 
+    //This funtion is to get the most eficient value of depth in the node tree
     private int calculateOptimalDepth(int triangleCount) {
-        int trianglesPerLeaf = 4; // Puedes ajustar este valor según rendimiento/precisión deseado
         int maxDepth = 16;
         int minDepth = 2;
 
-        if (triangleCount <= trianglesPerLeaf) {
+        if (triangleCount <= this.trianglesPerLeaf) {
             return minDepth;
         }
 
-        int estimatedDepth = (int) Math.ceil(Math.log(triangleCount / (double) trianglesPerLeaf) / Math.log(2));
+        int estimatedDepth = (int) Math.ceil(Math.log(triangleCount / (double) this.trianglesPerLeaf) / Math.log(2));
         return Math.max(minDepth, Math.min(maxDepth, estimatedDepth));
     }
 
@@ -102,24 +104,23 @@ public class BVHGenerator {
         double totalArea = calculateSurfaceArea(nodeBoundingBox);
 
         // Number of split positions to test along each axis
-        final int SPLIT_COUNT = 10;
+        final int maxSplits = this.splitCount;
 
         // Test splits along each axis
         for (int axis = 0; axis < 3; axis++) {
-            double axisLength;
-            switch (axis) {
-                case 0: axisLength = dimensions.getX(); break;
-                case 1: axisLength = dimensions.getY(); break;
-                case 2: axisLength = dimensions.getZ(); break;
-                default: axisLength = 0; break;
-            }
+            double axisLength = switch (axis) { //sets the dimention depending on the axis it will try to cut
+                case 0 -> dimensions.getX();
+                case 1 -> dimensions.getY();
+                case 2 -> dimensions.getZ();
+                default -> 0;
+            };
 
             // Skip axes with minimal length
             if (axisLength < 1e-6) continue;
 
             // Test multiple split positions along the axis
-            for (int splitPos = 1; splitPos < SPLIT_COUNT; splitPos++) {
-                double splitValue = min.getComponent(axis) + (axisLength * splitPos / SPLIT_COUNT);
+            for (int splitPos = 1; splitPos < maxSplits; splitPos++) {
+                double splitValue = min.getComponent(axis) + (axisLength * splitPos / maxSplits);
 
                 // Split triangles based on their centroids
                 List<Integer> leftIndices = new ArrayList<>();
@@ -127,7 +128,7 @@ public class BVHGenerator {
 
                 for (int index : triangleIndices) {
                     Triangle triangle = triangleList.get(index);
-                    Vector3D center = getTriangleCenter(triangle);
+                    Vector3D center = triangle.getCenter();
 
                     if (center.getComponent(axis) <= splitValue) {
                         leftIndices.add(index);
@@ -193,20 +194,6 @@ public class BVHGenerator {
         System.out.println("----------------------");
     }
 
-    private int getLongestAxis(Vector3D dimensions) {
-        int axis = 0;
-        double maxDimension = dimensions.getX();
-
-        if (dimensions.getY() > maxDimension) {
-            axis = 1;
-            maxDimension = dimensions.getY();
-        }
-        if (dimensions.getZ() > maxDimension) {
-            axis = 2;
-        }
-
-        return axis;
-    }
 
     private Cube calculateBoundingBox(List<Integer> triangleIndices) {
         if (triangleIndices.isEmpty()) {
@@ -259,17 +246,6 @@ public class BVHGenerator {
         );
 
         return new Cube(newMin, newMax);
-    }
-
-    private Vector3D getTriangleCenter(Triangle triangle) {
-        Vector3D v1 = triangle.getVertex1();
-        Vector3D v2 = triangle.getVertex2();
-        Vector3D v3 = triangle.getVertex3();
-        return new Vector3D(
-                (v1.getX() + v2.getX() + v3.getX()) / 3.0,
-                (v1.getY() + v2.getY() + v3.getY()) / 3.0,
-                (v1.getZ() + v2.getZ() + v3.getZ()) / 3.0
-        );
     }
 
     // Helper class to store split information
