@@ -171,4 +171,13 @@ public class Vector3D {
                 ", y=" + getY() +
                 ", z=" + getZ() ;
     }
+
+    public static int vectorToInt(Vector3D vector) {
+        return (int) vector.getX()<<16 + (int) vector.getY()<<8 + (int) vector.getZ();
+    }
+
+    public int getRGB() {
+        return ((int) getX() << 16) | ((int) getY() << 8) | (int) getZ();
+    }
+
 }

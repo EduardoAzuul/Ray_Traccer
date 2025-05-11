@@ -73,4 +73,12 @@ public abstract class Object3D {
     public void setColor(Vector3D color) {
         this.color = color;
     }
+
+    public Material getMaterial() {
+        return material;
+    }
+
+    public void setMaterial(Material material) {
+        this.material = material;
+    }
 }

@@ -1,5 +1,6 @@
 package Objects;
 
+import Materials.Material;
 import Tools.ObjReader;
 import vectors.Vector3D;
 import Objects.WrapperBoxes.*;
@@ -12,8 +13,18 @@ public class ObjObject extends Object3D {
     private Cube cube;
     private BVHNode bvhRoot;
 
+
     public ObjObject(Vector3D color, Vector3D rotation, Vector3D position, Vector3D scale, String objPath) {
         super(color, rotation, position, scale);
+        loadFromObjFile(objPath);
+        rotateNormals();
+        setCube();
+        buildBVH();
+    }
+
+    public ObjObject(Material material, Vector3D color, Vector3D rotation, Vector3D position, Vector3D scale, String objPath) {
+        super(color, rotation, position, scale);
+        setMaterial(material);
         loadFromObjFile(objPath);
         rotateNormals();
         setCube();
@@ -29,6 +40,7 @@ public class ObjObject extends Object3D {
             triangle.setNormalEdge1(normal1.rotateVector(getRotation()));
             triangle.setNormalEdge2(normal2.rotateVector(getRotation()));
             triangle.setNormalEdge3(normal3.rotateVector(getRotation()));
+            triangle.setMaterial(getMaterial());
         }
     }
 

@@ -1,8 +1,11 @@
 import Lights.DirectionalLight;
 import Lights.SpotLight;
 import Lights.PointLight;
+import Materials.BlingPhongMaterial;
 import Objects.*;
 import Objects.ObjObject;
+import ResuableElements.TipicalMaterials;
+import ResuableElements.TipicalObj;
 import vectors.Vector3D;
 
 import javax.imageio.ImageIO;
@@ -53,7 +56,7 @@ public class Raytracer {
             //ObjObject objObject = new ObjObject(color, rotation, position, scale, pathObj);
             //object3DList.add(objObject);
 
-            pathObj = "Objs/SmallTeapot.obj";
+            /*pathObj = "Objs/SmallTeapot.obj";
             color = new Vector3D(255,252,240);
             position = new Vector3D(0,0, -30);
             rotation = new Vector3D(0,0, 0);
@@ -65,7 +68,7 @@ public class Raytracer {
             rotation = new Vector3D(0,0,0);
             position = new Vector3D(0,-20, -50);
             objObject2 = new ObjObject(color, rotation, position, scale, pathObj);
-            object3DList.add(objObject2);
+            object3DList.add(objObject2);*/
 
             pathObj = "Objs/square.obj";
             color = new Vector3D(233,31,91);
@@ -74,6 +77,12 @@ public class Raytracer {
             scale = new Vector3D(80.0, 80.0, 80.0);
             ObjObject objObject3 = new ObjObject(color,rotation,position,scale, pathObj);
             object3DList.add(objObject3);
+
+
+
+
+            object3DList.add(TipicalObj.createAngel(TipicalMaterials.BRONZE));
+
 
             // Add all objects to scene
             for (Object3D object3D : object3DList) {

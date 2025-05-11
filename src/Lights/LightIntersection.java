@@ -1,5 +1,6 @@
 package Lights;
 
+import Materials.BlingPhongMaterial;
 import Objects.ObjObject;
 import Objects.Object3D;
 import Objects.Sphere;
@@ -11,12 +12,15 @@ import vectors.Vector3D;
 import java.util.ArrayList;
 import java.util.List;
 
+import static java.lang.Math.max;
+
 public class LightIntersection {
     List<Object3D> object3DList= new ArrayList<>();
     List<Light> lightList= new ArrayList<>();
     Object3D objectHit;
     Vector3D origin;
     Vector3D direction;
+    Vector3D cameraOrigin;
 
     public List<Object3D> getObject3DList() {
         return object3DList;
@@ -58,25 +62,47 @@ public class LightIntersection {
         this.direction = direction;
     }
 
+    public Vector3D getCameraOrigin() {
+        return cameraOrigin;
+    }
+
+    public void setCameraOrigin(Vector3D cameraOrigin) {
+        this.cameraOrigin = cameraOrigin;
+    }
+
     /***************************************************************/
 
     public LightIntersection(List<Object3D> object3DList, List<Light> lightList,
-                             Object3D objectHit, Vector3D origin, Vector3D direction)
+                             Object3D objectHit, Vector3D origin, Vector3D direction, Vector3D cameraOrigin)
     {
         setObject3DList(object3DList);
         setLightList(lightList);
         setObjectHit(objectHit);
         setOrigin(origin);
         setDirection(direction.normalize());
-
+        setCameraOrigin(cameraOrigin);
     }
 
     /*************************************************************/
 
-    public int lightsIntersection(Object3D object, Vector3D point) {
-        // Calculate the ambient color (could be made a parameter of the method)
-        int ambientColor = calculateAmbientLight(object.getColorInt(), 0.15); // 15% ambient light
-        int finalColor = ambientColor;
+    public int lightsIntersectionMatte(Object3D object, Vector3D point) {
+        // Variables to store color and lighting information
+        int objectColor;
+        int ambientColor;
+        int finalColor;
+        boolean useBlinnPhong = false;
+
+        // Determine which color to use based on material
+        if (object.getMaterial() instanceof BlingPhongMaterial) {
+            useBlinnPhong = true;
+            objectColor = object.getMaterial().getColor();
+        } else {
+            objectColor = object.getColorInt();
+        }
+
+        // Calculate ambient color using the determined object color
+        ambientColor = calculateAmbientLight(objectColor, 0.15); // 15% ambient light
+        finalColor = ambientColor;
         boolean anyLightHits = false;
 
         for(Light light: lightList) {    // Check for every light
@@ -117,20 +143,36 @@ public class LightIntersection {
                 continue;
             }
 
-            //Handeling of Directiona Light
+            // If we're using Blinn-Phong model and the object is a Triangle
+            if (useBlinnPhong && object instanceof Triangle) {
+                // Calculate the Blinn-Phong lighting for this light
+                double lightFactor = blingLight((Triangle) object, point, light, cameraOrigin);
+
+                // Convert the lighting factor to a color - passing objectColor, not object.getColorInt()
+                int lightColor = applyBlinnPhongToColor(objectColor, light.getColorint(), lightFactor);
+                finalColor = blendColors(finalColor, lightColor);
+                anyLightHits = true;
+                continue; // Skip the regular lighting calculations
+            }
+
+            //Handling of Directional Light
             if(light instanceof DirectionalLight){
                 if (object instanceof Triangle) {
-                    int lightColor = LambertianLight((Triangle) object, point, (DirectionalLight) light);
+                    // Use the objectColor for LambertianLight calculations
+                    Triangle triangle = (Triangle) object;
+                    int lightColor = LambertianLightWithColor(triangle, point, (DirectionalLight) light, objectColor);
                     finalColor = blendColors(finalColor, lightColor);
                     anyLightHits = true;
                 }
             }
 
             // Handle Spotlight
-            if (light instanceof SpotLight) {
+            else if (light instanceof SpotLight) {
                 if (SpotLightHit((SpotLight) light, point)) {
                     if (object instanceof Triangle) {
-                        int lightColor = LambertianLight((Triangle) object, point, (SpotLight) light);
+                        // Use the objectColor for LambertianLight calculations
+                        Triangle triangle = (Triangle) object;
+                        int lightColor = LambertianLightWithColor(triangle, point, (SpotLight) light, objectColor);
                         finalColor = blendColors(finalColor, lightColor);
                         anyLightHits = true;
                     }
@@ -140,7 +182,9 @@ public class LightIntersection {
             // Handle point light
             else if (light instanceof PointLight) {
                 if (object instanceof Triangle) {
-                    int lightColor = LambertianLight((Triangle) object, point, (PointLight) light);
+                    // Use the objectColor for LambertianLight calculations
+                    Triangle triangle = (Triangle) object;
+                    int lightColor = LambertianLightWithColor(triangle, point, (PointLight) light, objectColor);
                     finalColor = blendColors(finalColor, lightColor);
                     anyLightHits = true;
                 }
@@ -149,6 +193,48 @@ public class LightIntersection {
 
         // If no lights hit the point, use ambient light only
         return anyLightHits ? finalColor : ambientColor;
+    }
+
+    // New method that takes an explicit color parameter instead of using the object's color
+    public int LambertianLightWithColor(Triangle object, Vector3D point, Light light, int color) {
+        Vector3D normal = object.getNormal(point).normalize().multiplyByScalar(-1);
+
+        double intensity = lightIntensity(object, point, light);
+        Vector3D lightDir = lightDirection(object, point, light);
+
+        // Calculate cosine of angle between normal and light
+        double dotNL = normal.dot(lightDir);
+
+        // If light is behind the surface, return black (no contribution)
+        if (dotNL <= 0) {
+            return 0x000000;
+        }
+
+        // Get colors - use the passed color instead of object.getColorInt()
+        return addColorsWithDotNL(color, light, dotNL, intensity);
+    }
+
+    // Helper method to apply Blinn-Phong lighting factor to a color
+    private int applyBlinnPhongToColor(int objectColor, int lightColor, double lightFactor) {
+        int or = (objectColor >> 16) & 0xFF;
+        int og = (objectColor >> 8) & 0xFF;
+        int ob = objectColor & 0xFF;
+
+        int lr = (lightColor >> 16) & 0xFF;
+        int lg = (lightColor >> 8) & 0xFF;
+        int lb = lightColor & 0xFF;
+
+        // Calculate the final color with the lighting factor
+        int r = (int)((or * lr / 255.0) * lightFactor);
+        int g = (int)((og * lg / 255.0) * lightFactor);
+        int b = (int)((ob * lb / 255.0) * lightFactor);
+
+        // Clamp values
+        r = Math.min(255, Math.max(0, r));
+        g = Math.min(255, Math.max(0, g));
+        b = Math.min(255, Math.max(0, b));
+
+        return (r << 16) | (g << 8) | b;
     }
 
     // Helper method to calculate ambient light
@@ -205,16 +291,36 @@ public class LightIntersection {
         return false;
     }
 
-
-
-
-    public int LambertianLight(Triangle object, Vector3D point, Light light) {
-        Vector3D normal = object.getNormal(point).normalize().multiplyByScalar(-1);
-
-        // Calculate light direction vector from point to light source
+    public double lightIntensity(Triangle object, Vector3D point, Light light){
         Vector3D lightDir;
         double intensity = light.getIntensity();
+        if(light instanceof SpotLight) {
 
+            Vector3D lightVector = light.getPosition().subtract(point);
+            double distance = lightVector.length();
+
+            double attenuation = 1.0 / (1.0 + 0.05 * distance * distance);
+            intensity *= attenuation;
+
+        } else if (light instanceof PointLight) {
+            // For point lights, calculate direction and apply distance attenuation
+            Vector3D lightVector = light.getPosition().subtract(point);
+            double distance = lightVector.length();
+            lightDir = lightVector.normalize();
+
+            // Apply light attenuation for point lights (inverse square law)
+            double attenuation = 1.0 / (1.0 + 0.05*distance * distance);
+            intensity *= attenuation;
+        } else {
+            // Default case
+            intensity = light.getIntensity();
+        }
+        return intensity;
+    }
+
+    public Vector3D lightDirection(Triangle object, Vector3D point, Light light) {
+        Vector3D lightDir;
+        double intensity = light.getIntensity();
         if(light instanceof SpotLight){
             // For directional lights, negate the light's direction vector
             lightDir = ((SpotLight) light).getDirection().normalize().multiplyByScalar(-1);
@@ -243,6 +349,14 @@ public class LightIntersection {
             // Default case
             lightDir = light.getPosition().subtract(point).normalize();
         }
+        return lightDir;
+    }
+
+    public int LambertianLight(Triangle object, Vector3D point, Light light) {
+        Vector3D normal = object.getNormal(point).normalize().multiplyByScalar(-1);
+
+        double intensity = lightIntensity(object, point, light);
+        Vector3D lightDir = lightDirection(object, point, light);
 
         // Calculate cosine of angle between normal and light
         double dotNL = normal.dot(lightDir);
@@ -255,6 +369,32 @@ public class LightIntersection {
         // Get colors
         return addColorsWithDotNL (object.getColorInt(), light, dotNL, intensity);
     }
+
+    public double blingLight(Triangle object, Vector3D point, Light light, Vector3D cameraOrigin) {
+        Vector3D normal = object.getNormal(point).normalize().multiplyByScalar(-1);
+        BlingPhongMaterial material = (BlingPhongMaterial) object.getMaterial();
+
+        // Ambient light
+        double AMBIENT_LIGHT_INTENSITY = 0.5;
+        double ambientComponent = material.getAmbient() * AMBIENT_LIGHT_INTENSITY;
+
+        // Light direction
+        Vector3D lightDir = lightDirection(object, point, light);
+        double intensity = lightIntensity(object, point, light);
+
+        // Diffuse light (Lambert)
+        double diffuseComponent = material.getDiffuse() * intensity * Math.max(0, normal.dot(lightDir));
+
+        // Specular light (Blinn-Phong)
+        Vector3D viewDir = cameraOrigin.subtract(point).normalize();
+        Vector3D halfway = lightDir.add(viewDir).normalize();
+        double specAngle = Math.max(0, normal.dot(halfway));
+        double specularComponent = material.getSpecular() * intensity * Math.pow(specAngle, material.getShininess());
+
+        // Sum all components
+        return ambientComponent + diffuseComponent + specularComponent;
+    }
+
 
     private int addColorsWithDotNL(int objectColor, Light light, double dotNL, double intensity) {
 
@@ -276,9 +416,9 @@ public class LightIntersection {
         int b = (int)((ob * lb / 255.0) * intensity * dotNL * brightnessFactor);
 
         // Clamp values
-        r = Math.min(255, Math.max(0, r));
-        g = Math.min(255, Math.max(0, g));
-        b = Math.min(255, Math.max(0, b));
+        r = Math.min(255, max(0, r));
+        g = Math.min(255, max(0, g));
+        b = Math.min(255, max(0, b));
 
         return (r << 16) | (g << 8) | b;
     }

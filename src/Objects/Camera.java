@@ -28,6 +28,66 @@ public class Camera {
     private int height;
     private double fov;
 
+    public Vector3D getOrigin() {
+        return origin;
+    }
+
+    public void setOrigin(Vector3D origin) {
+        this.origin = origin;
+    }
+
+    public Vector3D getRotation() {
+        return rotation;
+    }
+
+    public void setRotation(Vector3D rotation) {
+        this.rotation = rotation;
+    }
+
+    public double getNearplane() {
+        return nearplane;
+    }
+
+    public void setNearplane(double nearplane) {
+        this.nearplane = nearplane;
+    }
+
+    public double getFarplane() {
+        return farplane;
+    }
+
+    public void setFarplane(double farplane) {
+        this.farplane = farplane;
+    }
+
+    public void setImage(BufferedImage image) {
+        this.image = image;
+    }
+
+    public int getWidth() {
+        return width;
+    }
+
+    public void setWidth(int width) {
+        this.width = width;
+    }
+
+    public int getHeight() {
+        return height;
+    }
+
+    public void setHeight(int height) {
+        this.height = height;
+    }
+
+    public double getFov() {
+        return fov;
+    }
+
+    public void setFov(double fov) {
+        this.fov = fov;
+    }
+
     private final int TileSize = 32;
 
     /**
@@ -37,6 +97,8 @@ public class Camera {
     public int getTileSize() {
         return TileSize;
     }
+
+
 
     /**
      * Constructs a Camera object.
@@ -134,10 +196,11 @@ public class Camera {
         Vector3D intersectionPoint = ray.getOrigin().add(ray.getDirection().scale(closestDist));
 
         LightIntersection lightIntersection = new LightIntersection(
-                objects, lights, closestObject, ray.getOrigin(), ray.getDirection());
+                objects, lights, closestObject, ray.getOrigin(), ray.getDirection(), getOrigin());
 
+        /***************** FOR MATTE OBJECTS************************/
         if (triangleHit != null) {
-            return lightIntersection.lightsIntersection(triangleHit, intersectionPoint);
+            return lightIntersection.lightsIntersectionMatte(triangleHit, intersectionPoint);
         }
 
         return closestObject.getColorInt();

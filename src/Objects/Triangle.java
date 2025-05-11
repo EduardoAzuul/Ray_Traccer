@@ -1,5 +1,6 @@
 package Objects;
 
+import Materials.Material;
 import vectors.Vector3D;
 
 public class Triangle extends Object3D {
@@ -10,6 +11,17 @@ public class Triangle extends Object3D {
     private Vector3D normalEdge1;
     private Vector3D normalEdge2;
     private Vector3D normalEdge3;
+    private Material material;
+
+    @Override
+    public Material getMaterial() {
+        return material;
+    }
+
+    @Override
+    public void setMaterial(Material material) {
+        this.material = material;
+    }
 
     // Constructor with proper transformation order
     public Triangle(Vector3D color, Vector3D rotation, Vector3D origin,
