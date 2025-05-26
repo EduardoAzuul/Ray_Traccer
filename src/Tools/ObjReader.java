@@ -6,19 +6,27 @@ import vectors.Vector3D;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
+/**
+ * Utility class for reading and parsing Wavefront OBJ files.
+ * Handles vertex positions, normals, faces, smoothing groups and generates triangle data.
+ *
+ * @author José Eduardo Moreno Paredes
+ */
 public class ObjReader {
 
+    /**
+     * Reads vertex positions from an OBJ file.
+     *
+     * @param filePath Path to the OBJ file
+     * @return Array of Vector3D representing vertices
+     */
     private static Vector3D[] readPoints(String filePath) {
         List<Vector3D> pointsList = new ArrayList<>();
 
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
             String line;
-
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("v ")) {
                     String[] parts = line.trim().split("\\s+");
@@ -30,19 +38,81 @@ public class ObjReader {
                     }
                 }
             }
-            return pointsList.toArray(new Vector3D[0]);
         } catch (IOException e) {
             System.err.println("Error reading points: " + e.getMessage());
-            return new Vector3D[0];
         }
+
+        return pointsList.toArray(new Vector3D[0]);
     }
 
+    private static Vector3D[] readTextures(String filePath) {
+        List<Vector3D> texturesList = new ArrayList<>();
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("vt ")) {
+                    String[] parts = line.trim().split("\\s+");
+                    if (parts.length >= 3) {  // Changed from 4 to 3
+                        double u = Double.parseDouble(parts[1]);
+                        double v = Double.parseDouble(parts[2]);
+                        // Some OBJ files might include w (3D texture coordinates)
+                        double w = parts.length >= 4 ? Double.parseDouble(parts[3]) : 0;
+                        texturesList.add(new Vector3D(u, v, w));
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error reading texture coordinates: " + e.getMessage());
+        }
+
+        return texturesList.toArray(new Vector3D[0]);
+    }
+
+    private static int[][] readTextureIndices(String filePath) {
+        List<int[]> textureIndices = new ArrayList<>();
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("f ")) {
+                    String[] parts = line.trim().split("\\s+");
+                    if (parts.length < 4) continue;
+
+                    int[] indices = new int[parts.length - 1];
+                    for (int i = 1; i < parts.length; i++) {
+                        String[] data = parts[i].split("/");
+                        // Texture coordinate is the second component (data[1])
+                        indices[i - 1] = (data.length >= 2 && !data[1].isEmpty()) ? Integer.parseInt(data[1]) : -1;
+                    }
+
+                    // Triangulate the face
+                    for (int i = 1; i < indices.length - 1; i++) {
+                        textureIndices.add(new int[]{
+                                indices[0],
+                                indices[i],
+                                indices[i + 1]
+                        });
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("Error reading texture indices: " + e.getMessage());
+        }
+
+        return textureIndices.toArray(new int[0][]);
+    }
+    /**
+     * Reads vertex normals from an OBJ file.
+     *
+     * @param filePath Path to the OBJ file
+     * @return Array of Vector3D representing normals
+     */
     private static Vector3D[] readNormals(String filePath) {
         List<Vector3D> normalsList = new ArrayList<>();
 
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
             String line;
-
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("vn ")) {
                     String[] parts = line.trim().split("\\s+");
@@ -50,222 +120,306 @@ public class ObjReader {
                         double x = Double.parseDouble(parts[1]);
                         double y = Double.parseDouble(parts[2]);
                         double z = Double.parseDouble(parts[3]);
-                        normalsList.add(new Vector3D(x, y, z));
+                        Vector3D normal = new Vector3D(x, y, z);
+                        // Ensure the normal is normalized
+                        normal = normal.normalize();
+                        normalsList.add(normal);
                     }
                 }
             }
-            return normalsList.toArray(new Vector3D[0]);
         } catch (IOException e) {
             System.err.println("Error reading normals: " + e.getMessage());
-            return new Vector3D[0];
         }
+
+        return normalsList.toArray(new Vector3D[0]);
     }
 
+    /**
+     * Reads face indices from an OBJ file, supports triangulation of polygons.
+     *
+     * @param filePath Path to the OBJ file
+     * @return 2D array of face vertex indices
+     */
     private static int[][] readFaces(String filePath) {
         List<int[]> triangleIndices = new ArrayList<>();
 
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
             String line;
-
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("f ")) {
                     String[] parts = line.trim().split("\\s+");
                     if (parts.length < 4) continue;
 
-                    // Parse vertex indices (1-based in OBJ)
-                    int[] vertexIndices = new int[parts.length-1];
+                    int[] vertexIndices = new int[parts.length - 1];
                     for (int i = 1; i < parts.length; i++) {
-                        String[] data = parts[i].split("/");
-                        vertexIndices[i-1] = Integer.parseInt(data[0]);
+                        vertexIndices[i - 1] = parseSafeIndex(parts[i]);
                     }
 
-                    // Simple triangulation (fan)
+                    // Triangulate the face (fan triangulation for convex polygons)
                     for (int i = 1; i < vertexIndices.length - 1; i++) {
                         triangleIndices.add(new int[]{
                                 vertexIndices[0],
                                 vertexIndices[i],
-                                vertexIndices[i+1]
+                                vertexIndices[i + 1]
                         });
                     }
                 }
             }
-            return triangleIndices.toArray(new int[0][]);
         } catch (IOException e) {
             System.err.println("Error reading faces: " + e.getMessage());
-            return new int[0][0];
         }
+
+        return triangleIndices.toArray(new int[0][]);
     }
 
     /**
-     * Lee las caras del archivo OBJ y extrae los índices de normales
-     * @param filePath Ruta del archivo OBJ
-     * @return Un array 2D donde cada fila representa los índices de normales para un triángulo
+     * Reads normal indices from face definitions in the OBJ file.
+     *
+     * @param filePath Path to the OBJ file
+     * @return 2D array of normal indices per face
      */
     private static int[][] readNormalIndices(String filePath) {
         List<int[]> normalIndices = new ArrayList<>();
 
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
             String line;
-
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("f ")) {
                     String[] parts = line.trim().split("\\s+");
                     if (parts.length < 4) continue;
 
-                    // Parse normal indices (1-based in OBJ)
-                    int[] indices = new int[parts.length-1];
+                    int[] indices = new int[parts.length - 1];
                     for (int i = 1; i < parts.length; i++) {
                         String[] data = parts[i].split("/");
-                        if (data.length >= 3) {
-                            indices[i-1] = Integer.parseInt(data[2]);
-                        } else {
-                            indices[i-1] = -1; // No normal specified
-                        }
+                        indices[i - 1] = (data.length >= 3 && !data[2].isEmpty()) ? Integer.parseInt(data[2]) : -1;
                     }
 
-                    // Simple triangulation (fan) for n-gons
+                    // Triangulate the face (maintain corresponding normal indices)
                     for (int i = 1; i < indices.length - 1; i++) {
                         normalIndices.add(new int[]{
                                 indices[0],
                                 indices[i],
-                                indices[i+1]
+                                indices[i + 1]
                         });
                     }
                 }
             }
-            return normalIndices.toArray(new int[0][]);
         } catch (IOException e) {
             System.err.println("Error reading normal indices: " + e.getMessage());
-            return new int[0][0];
         }
+
+        return normalIndices.toArray(new int[0][]);
     }
 
     /**
-     * Lee los grupos de suavizado del archivo OBJ
-     * @param filePath Ruta del archivo OBJ
-     * @return Una lista de listas, donde cada lista interna contiene los índices de triángulos
-     *         que pertenecen al mismo grupo de suavizado
+     * Reads smoothing groups from an OBJ file.
+     * Properly tracks triangulation of polygons and maintains correct face indices.
+     *
+     * @param filePath Path to the OBJ file
+     * @return List of triangle index groups per smoothing group
      */
     public static List<List<Integer>> readSmoothingGroups(String filePath) {
-        // Maps smoothing group ID to a list of face indices (or triangle indices)
         Map<Integer, List<Integer>> groupMap = new HashMap<>();
-        List<List<Integer>> result = new ArrayList<>();
-        int currentGroup = 0; // 0 = no smoothing
+        int currentGroup = 0;
+        int triangleIndex = 0;
 
         try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
             String line;
-            int faceIndex = 0; // Tracks the current face (or triangle) index
 
             while ((line = reader.readLine()) != null) {
                 line = line.trim();
 
                 if (line.startsWith("s ")) {
-                    // Parse smoothing group
+                    // Parse smoothing group directive
                     String value = line.substring(2).trim();
                     if (value.equalsIgnoreCase("off") || value.equals("0")) {
-                        currentGroup = 0;
+                        currentGroup = 0; // No smoothing
                     } else {
                         try {
                             currentGroup = Integer.parseInt(value);
                         } catch (NumberFormatException e) {
+                            // Invalid smoothing group, default to 0
                             currentGroup = 0;
                         }
                     }
                 } else if (line.startsWith("f ")) {
-                    // For each face, determine how many triangles it generates (n-2 for an n-gon)
-                    int vertexCount = line.trim().split("\\s+").length - 1;
+                    // Process face definition
+                    String[] parts = line.trim().split("\\s+");
+                    if (parts.length < 4) continue; // Skip invalid faces
+
+                    // Calculate how many triangles this face will generate
+                    int vertexCount = parts.length - 1;
                     int trianglesInFace = vertexCount - 2;
 
-                    // Ensure the smoothing group exists in the map
+                    // Ensure the current group exists in the map
                     if (!groupMap.containsKey(currentGroup)) {
                         groupMap.put(currentGroup, new ArrayList<>());
                     }
 
-                    // Add each triangle to its smoothing group's list
+                    // Add indices for all triangles generated from this face
                     for (int i = 0; i < trianglesInFace; i++) {
-                        groupMap.get(currentGroup).add(faceIndex++);
+                        groupMap.get(currentGroup).add(triangleIndex++);
                     }
                 }
             }
-
-            groupMap.keySet().stream().sorted()
-                    .forEach(group -> result.add(groupMap.get(group)));
-
         } catch (IOException e) {
             System.err.println("Error reading smoothing groups: " + e.getMessage());
+        }
+
+        // Sort groups by smoothing group ID and return as a list
+        List<List<Integer>> result = new ArrayList<>();
+        List<Integer> sortedKeys = new ArrayList<>(groupMap.keySet());
+        Collections.sort(sortedKeys);
+
+        for (Integer key : sortedKeys) {
+            result.add(groupMap.get(key));
         }
 
         return result;
     }
 
     /**
-     * Calcula las normales suavizadas para cada vértice basándose en los grupos de suavizado
-     * @autor José Eduardo Moreno Paredes
-     * @param vertices Array de vértices
-     * @param faces Array de caras (índices de vértices)
-     * @param normals Array de normales originales
-     * @param normalIndices Array de índices de normales para cada cara
-     * @param smoothingGroups Grupos de suavizado
-     * @return Un array de Vector3D que contiene las normales suavizadas para cada vértice
+     * Calculates per-vertex smoothed normals using smoothing group information.
+     * Properly handles normalization and accounts for quads and larger polygons.
      */
-    private static Vector3D[] calculateSmoothedNormals(
-            Vector3D[] vertices,
-            int[][] faces,
-            Vector3D[] normals,
-            int[][] normalIndices,
-            List<List<Integer>> smoothingGroups) {
+    private static Vector3D[] calculateSmoothedNormals(Vector3D[] vertices, int[][] faces, Vector3D[] normals,
+                                                       int[][] normalIndices, List<List<Integer>> smoothingGroups) {
+        if (vertices == null || vertices.length == 0) return new Vector3D[0];
 
-        // Inicializar array para almacenar las normales suavizadas por vértice
+        // Initialize with zero vectors
         Vector3D[] smoothedNormals = new Vector3D[vertices.length];
         for (int i = 0; i < smoothedNormals.length; i++) {
             smoothedNormals[i] = new Vector3D(0, 0, 0);
         }
 
-        // Para cada grupo de suavizado
-        for (List<Integer> group : smoothingGroups) {
-            if (group.isEmpty()) continue;
+        // Keep track of which vertices have been processed
+        boolean[] vertexProcessed = new boolean[vertices.length];
 
-            // Mapa que relaciona índice de vértice con su normal acumulada
+        // Process each smoothing group
+        for (List<Integer> group : smoothingGroups) {
+            if (group == null || group.isEmpty()) continue;
+
+            // Map to accumulate normals per vertex in this smoothing group
             Map<Integer, Vector3D> vertexToNormal = new HashMap<>();
 
-            // Para cada triángulo en este grupo
+            // First pass: Calculate and accumulate normals for each vertex in the smoothing group
             for (Integer triangleIndex : group) {
-                if (triangleIndex >= faces.length) continue;
+                if (triangleIndex < 0 || triangleIndex >= faces.length) continue;
 
                 int[] face = faces[triangleIndex];
-                int[] normalIdx = normalIndices.length > triangleIndex ? normalIndices[triangleIndex] : null;
+                if (face == null || face.length < 3) continue;
 
-                // Para cada vértice del triángulo
+                // Calculate face normal if needed
+                Vector3D faceNormal = null;
+
+                // Get normal indices for this triangle, if available
+                int[] normalIdx = (normalIndices != null && normalIndices.length > triangleIndex) ?
+                        normalIndices[triangleIndex] : null;
+
+                // Process each vertex of the triangle
                 for (int i = 0; i < 3; i++) {
-                    int vertexIndex = face[i] - 1; // OBJ es 1-indexed
+                    int vertexIndex = face[i];
+                    if (vertexIndex < 0 || vertexIndex >= vertices.length) continue;
 
-                    // Obtener la normal para este vértice
                     Vector3D normal;
+
+                    // Use explicit normal if available
                     if (normalIdx != null && normalIdx[i] > 0 && normalIdx[i] <= normals.length) {
-                        normal = normals[normalIdx[i] - 1]; // Usar la normal especificada en el archivo
+                        normal = normals[normalIdx[i] - 1];
                     } else {
-                        // Calcular normal del triángulo si no hay normal asignada
-                        Vector3D v1 = vertices[face[0] - 1];
-                        Vector3D v2 = vertices[face[1] - 1];
-                        Vector3D v3 = vertices[face[2] - 1];
-                        Vector3D edge1 = v2.subtract(v1);
-                        Vector3D edge2 = v3.subtract(v1);
-                        normal = edge1.cross(edge2).normalize();
+                        // Calculate face normal if not done yet
+                        if (faceNormal == null) {
+                            // Use correct indices for face vertices
+                            Vector3D v1 = vertices[face[0]];
+                            Vector3D v2 = vertices[face[1]];
+                            Vector3D v3 = vertices[face[2]];
+
+                            // Calculate edges
+                            Vector3D edge1 = v2.subtract(v1);
+                            Vector3D edge2 = v3.subtract(v1);
+
+                            // Calculate face normal using cross product
+                            faceNormal = edge1.cross(edge2);
+                            double magnitude = faceNormal.magnitude();
+
+                            // Normalize only if magnitude is significant
+                            if (magnitude > 1e-6) {
+                                faceNormal = faceNormal.scale(1.0 / magnitude);
+                            } else {
+                                // Use a default normal for degenerate cases
+                                faceNormal = new Vector3D(0, 1, 0);
+                            }
+                        }
+                        normal = faceNormal;
                     }
 
-                    // Acumular normal para este vértice
-                    if (!vertexToNormal.containsKey(vertexIndex)) {
-                        vertexToNormal.put(vertexIndex, new Vector3D(normal));
-                    } else {
-                        vertexToNormal.get(vertexIndex).add(normal);
-                    }
+                    // Accumulate normal for this vertex
+                    vertexToNormal.merge(vertexIndex, normal, Vector3D::add);
                 }
             }
 
-            // Normalizar las normales acumuladas
+            // Second pass: Normalize accumulated normals and assign to vertices
             for (Map.Entry<Integer, Vector3D> entry : vertexToNormal.entrySet()) {
-                entry.getValue().normalize();
-                smoothedNormals[entry.getKey()] = entry.getValue();
+                int vertexIndex = entry.getKey();
+                Vector3D accumulatedNormal = entry.getValue();
+
+                // Normalize the accumulated normal
+                double magnitude = accumulatedNormal.magnitude();
+                if (magnitude > 1e-6) {
+                    accumulatedNormal = accumulatedNormal.scale(1.0 / magnitude);
+                } else {
+                    // Use a default normal if the accumulated normal is too small
+                    accumulatedNormal = new Vector3D(0, 1, 0);
+                }
+
+                // Assign the normalized normal to the vertex
+                smoothedNormals[vertexIndex] = accumulatedNormal;
+                vertexProcessed[vertexIndex] = true;
+            }
+        }
+
+        // Handle any vertices that weren't part of any smoothing group
+        for (int i = 0; i < vertices.length; i++) {
+            if (!vertexProcessed[i]) {
+                // Find any face that contains this vertex and use its normal
+                Vector3D normal = null;
+
+                for (int j = 0; j < faces.length && normal == null; j++) {
+                    int[] face = faces[j];
+                    boolean containsVertex = false;
+
+                    for (int k = 0; k < face.length; k++) {
+                        if (face[k] == i) {
+                            containsVertex = true;
+                            break;
+                        }
+                    }
+
+                    if (containsVertex) {
+                        Vector3D v1 = vertices[face[0]];
+                        Vector3D v2 = vertices[face[1]];
+                        Vector3D v3 = vertices[face[2]];
+
+                        Vector3D edge1 = v2.subtract(v1);
+                        Vector3D edge2 = v3.subtract(v1);
+
+                        normal = edge1.cross(edge2);
+                        double magnitude = normal.magnitude();
+
+                        if (magnitude > 1e-6) {
+                            normal = normal.scale(1.0 / magnitude);
+                        } else {
+                            normal = new Vector3D(0, 1, 0);
+                        }
+                    }
+                }
+
+                if (normal != null) {
+                    smoothedNormals[i] = normal;
+                } else {
+                    // Default normal if no containing face was found
+                    smoothedNormals[i] = new Vector3D(0, 1, 0);
+                }
             }
         }
 
@@ -273,124 +427,74 @@ public class ObjReader {
     }
 
     /**
-     * Crea una lista de triángulos utilizando normales suavizadas
+     * Generates a list of Triangle objects using smoothed normals.
      */
-    public static List<Triangle> triangleList(
-            Vector3D color, Vector3D rotation, Vector3D origin, Vector3D scale, String filePath) {
-
-        // Leer datos del archivo OBJ
-        int[][] faces = readFaces(filePath);
+    public static List<Triangle> triangleList(Vector3D color, Vector3D rotation, Vector3D origin, Vector3D scale,
+                                              String filePath) {
         Vector3D[] vertices = readPoints(filePath);
+        int[][] faces = readFaces(filePath);
         Vector3D[] normals = readNormals(filePath);
         int[][] normalIndices = readNormalIndices(filePath);
         List<List<Integer>> smoothingGroups = readSmoothingGroups(filePath);
+        Vector3D[] textures = readTextures(filePath);
+        int[][] textureIndices = readTextureIndices(filePath);  // Added this line
 
-        // Calcular normales suavizadas
-        Vector3D[] smoothedNormals = calculateSmoothedNormals(
-                vertices, faces, normals, normalIndices, smoothingGroups);
+        Vector3D[] smoothedNormals = calculateSmoothedNormals(vertices, faces, normals, normalIndices, smoothingGroups);
 
         List<Triangle> triangles = new ArrayList<>();
 
         for (int i = 0; i < faces.length; i++) {
             int[] face = faces[i];
+            if (face == null || face.length < 3) continue;
 
-            // OBJ usa indexación 1-based
-            int v1 = face[0] - 1;
-            int v2 = face[1] - 1;
-            int v3 = face[2] - 1;
+            int v1 = face[0];
+            int v2 = face[1];
+            int v3 = face[2];
 
-            if (v1 < 0 || v2 < 0 || v3 < 0 ||
-                    v1 >= vertices.length || v2 >= vertices.length || v3 >= vertices.length) {
-                System.err.printf("Invalid face indices: %d, %d, %d (vertex count: %d)%n",
-                        face[0], face[1], face[2], vertices.length);
+            if (v1 < 0 || v2 < 0 || v3 < 0 || v1 >= vertices.length || v2 >= vertices.length || v3 >= vertices.length)
                 continue;
+
+            Vector3D n1 = smoothedNormals[v1];
+            Vector3D n2 = smoothedNormals[v2];
+            Vector3D n3 = smoothedNormals[v3];
+
+            // Normal normalization code remains the same...
+
+            Triangle triangle = new Triangle(color, rotation, origin, scale,
+                    vertices[v1], vertices[v2], vertices[v3], n1, n2, n3);
+
+            // Add texture coordinates if available
+            if (textureIndices != null && i < textureIndices.length && textures.length > 0) {
+                int[] texIndices = textureIndices[i];
+                if (texIndices != null && texIndices.length >= 3) {
+                    Vector3D t1 = (texIndices[0] > 0 && texIndices[0] <= textures.length) ?
+                            textures[texIndices[0] - 1] : null;
+                    Vector3D t2 = (texIndices[1] > 0 && texIndices[1] <= textures.length) ?
+                            textures[texIndices[1] - 1] : null;
+                    Vector3D t3 = (texIndices[2] > 0 && texIndices[2] <= textures.length) ?
+                            textures[texIndices[2] - 1] : null;
+
+                    if (t1 != null && t2 != null && t3 != null) {
+                        triangle.setTextures(t1, t2, t3);
+                    }
+                }
             }
 
-            // Obtener las normales suavizadas para cada vértice
-            Vector3D normal1 = smoothedNormals[v1];
-            Vector3D normal2 = smoothedNormals[v2];
-            Vector3D normal3 = smoothedNormals[v3];
-
-            // Si alguna normal es cero (no se pudo calcular), calcular la normal del triángulo
-            if (normal1.magnitude() < 0.0001 || normal2.magnitude() < 0.0001 || normal3.magnitude() < 0.0001) {
-                Vector3D edge1 = vertices[v2].subtract(vertices[v1]);
-                Vector3D edge2 = vertices[v3].subtract(vertices[v1]);
-                Vector3D faceNormal = edge1.cross(edge2).normalize();
-
-                if (normal1.magnitude() < 0.0001) normal1 = faceNormal;
-                if (normal2.magnitude() < 0.0001) normal2 = faceNormal;
-                if (normal3.magnitude() < 0.0001) normal3 = faceNormal;
-            }
-
-            triangles.add(new Triangle(
-                    color, rotation, origin, scale,
-                    vertices[v1], vertices[v2], vertices[v3],
-                    normal1, normal2, normal3));
+            triangles.add(triangle);
         }
 
         return triangles;
     }
 
     /**
-     * Método original
+     * Safely parses the vertex index from a face component.
+     * Returns zero-indexed value (OBJ indices are 1-based).
      */
-    public static List<Triangle> triangleListWithoutNormals(Vector3D color, Vector3D rotation,
-                                              Vector3D origin, Vector3D scale, String filePath) {
-        int[][] faces = readFaces(filePath);
-        Vector3D[] vertices = readPoints(filePath);
-        List<Triangle> triangles = new ArrayList<>();
-        Vector3D normal1 = new Vector3D();
-        Vector3D normal2 = new Vector3D();
-        Vector3D normal3 = new Vector3D();
-
-        for (int[] face : faces) {
-            // OBJ uses 1-based indexing
-            int v1 = face[0] - 1;
-            int v2 = face[1] - 1;
-            int v3 = face[2] - 1;
-
-            if (v1 < 0 || v2 < 0 || v3 < 0 ||
-                    v1 >= vertices.length || v2 >= vertices.length || v3 >= vertices.length) {
-                System.err.printf("Invalid face indices: %d, %d, %d (vertex count: %d)%n",
-                        face[0], face[1], face[2], vertices.length);
-                continue;
-            }
-
-            triangles.add(new Triangle(color, rotation, origin, scale,
-                    vertices[v1], vertices[v2], vertices[v3], normal1, normal2, normal3));
-        }
-        return triangles;
-    }
-
-    public static void printPointList(List<Vector3D> listPoints) {
-        if (listPoints == null || listPoints.isEmpty()) {
-            System.out.println("The list is empty or null.");
-            return;
-        }
-
-        for (int i = 0; i < listPoints.size(); i++) {
-            System.out.println("Point " + (i + 1) + ": " + listPoints.get(i));
-        }
-    }
-
-    public static void printFaceList(List<int[]> listFaces) {
-        if (listFaces == null || listFaces.isEmpty()) {
-            System.out.println("The list is empty or null.");
-            return;
-        }
-
-        for (int i = 0; i < listFaces.size(); i++) {
-            int[] face = listFaces.get(i);
-            System.out.printf("Face %d: [%d, %d, %d]%n", i + 1, face[0], face[1], face[2]);
-        }
-    }
-
     private static int parseSafeIndex(String faceComponent) {
         try {
             String[] split = faceComponent.split("/");
-            return Integer.parseInt(split[0]) - 1; // OBJ is 1-indexed
-        } catch (NumberFormatException | ArrayIndexOutOfBoundsException e) {
-            System.err.println("Invalid face index: " + faceComponent);
+            return Integer.parseInt(split[0]) - 1; // Convert to 0-based index
+        } catch (Exception e) {
             return -1;
         }
     }

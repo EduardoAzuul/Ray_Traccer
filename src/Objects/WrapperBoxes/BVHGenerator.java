@@ -44,25 +44,6 @@ public class BVHGenerator {
         precomputeCentroids();
     }
 
-    // Pre-compute all triangle centroids to avoid redundant calculations
-    private void precomputeCentroids() {
-        triangleCentroids = new Vector3D[triangleList.size()];
-        for (int i = 0; i < triangleList.size(); i++) {
-            triangleCentroids[i] = triangleList.get(i).getCenter();
-        }
-    }
-
-    private int calculateOptimalDepth(int triangleCount) {
-        int maxDepth = 16;
-        int minDepth = 2;
-
-        if (triangleCount <= this.trianglesPerLeaf) {
-            return minDepth;
-        }
-
-        int estimatedDepth = (int) Math.ceil(Math.log(triangleCount / (double) this.trianglesPerLeaf) / Math.log(2));
-        return Math.max(minDepth, Math.min(maxDepth, estimatedDepth));
-    }
 
     public BVHNode buildBVH() {
         if (triangleList == null || triangleList.isEmpty()) return null;
@@ -82,6 +63,26 @@ public class BVHGenerator {
         //printBVHStatistics();
 
         return root;
+    }
+
+    // Pre-compute all triangle centroids to avoid redundant calculations
+    private void precomputeCentroids() {
+        triangleCentroids = new Vector3D[triangleList.size()];
+        for (int i = 0; i < triangleList.size(); i++) {
+            triangleCentroids[i] = triangleList.get(i).getCenter();
+        }
+    }
+
+    private int calculateOptimalDepth(int triangleCount) {
+        int maxDepth = 16;
+        int minDepth = 2;
+
+        if (triangleCount <= this.trianglesPerLeaf) {
+            return minDepth;
+        }
+
+        int estimatedDepth = (int) Math.ceil(Math.log(triangleCount / (double) this.trianglesPerLeaf) / Math.log(2));
+        return Math.max(minDepth, Math.min(maxDepth, estimatedDepth));
     }
 
     // RecursiveTask for parallel BVH construction using Fork/Join framework

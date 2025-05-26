@@ -1,6 +1,7 @@
 package Objects;
 
 import Materials.Material;
+import Materials.Texture;
 import vectors.Vector3D;
 
 public class Triangle extends Object3D {
@@ -12,6 +13,43 @@ public class Triangle extends Object3D {
     private Vector3D normalEdge2;
     private Vector3D normalEdge3;
     private Material material;
+    private Texture texture;
+    private Vector3D texture1;
+    private Vector3D texture2;
+    private Vector3D texture3;
+
+
+    public Texture getTexture() {
+        return texture;
+    }
+
+    public void setTexture(Texture texture) {
+        this.texture = texture;
+    }
+
+    public Vector3D getTexture1() {
+        return texture1;
+    }
+
+    public void setTexture1(Vector3D texture1) {
+        this.texture1 = texture1;
+    }
+
+    public Vector3D getTexture2() {
+        return texture2;
+    }
+
+    public void setTexture2(Vector3D texture2) {
+        this.texture2 = texture2;
+    }
+
+    public Vector3D getTexture3() {
+        return texture3;
+    }
+
+    public void setTexture3(Vector3D texture3) {
+        this.texture3 = texture3;
+    }
 
     @Override
     public Material getMaterial() {
@@ -21,6 +59,12 @@ public class Triangle extends Object3D {
     @Override
     public void setMaterial(Material material) {
         this.material = material;
+    }
+
+    public void setTextures(Vector3D texture1, Vector3D texture2, Vector3D texture3) {
+        this.texture1 = texture1;
+        this.texture2 = texture2;
+        this.texture3 = texture3;
     }
 
     // Constructor with proper transformation order
@@ -35,6 +79,7 @@ public class Triangle extends Object3D {
         setNormal();
         //print();
     }
+
 
     public Triangle(Vector3D color, Vector3D rotation, Vector3D origin,
                     Vector3D scale, Vector3D vertex1, Vector3D vertex2, Vector3D vertex3, Vector3D normal1, Vector3D normal2, Vector3D normal3) {
@@ -197,5 +242,38 @@ public class Triangle extends Object3D {
                 (vertex1.getY()+vertex2.getY()+vertex3.getY())/3,
                 (vertex1.getZ()+vertex2.getZ()+vertex3.getZ())/3
         );
+    }
+
+    public int getTextureColor(Vector3D point) {
+        if (texture == null || texture1 == null || texture2 == null || texture3 == null) {
+            return 0; // color negro o algún valor por defecto
+        }
+
+        // Cálculo de coordenadas baricéntricas
+        Vector3D v0 = vertex2.subtract(vertex1);
+        Vector3D v1 = vertex3.subtract(vertex1);
+        Vector3D v2 = point.subtract(vertex1);
+
+        double d00 = v0.dot(v0);
+        double d01 = v0.dot(v1);
+        double d11 = v1.dot(v1);
+        double d20 = v2.dot(v0);
+        double d21 = v2.dot(v1);
+
+        double denom = d00 * d11 - d01 * d01;
+        if (Math.abs(denom) < 1e-6) {
+            return 0;
+        }
+
+        double v = (d11 * d20 - d01 * d21) / denom;
+        double w = (d00 * d21 - d01 * d20) / denom;
+        double u = 1.0 - v - w;
+
+        // Interpolación de coordenadas UV
+        double interpU = texture1.getX() * u + texture2.getX() * v + texture3.getX() * w;
+        double interpV = texture1.getY() * u + texture2.getY() * v + texture3.getY() * w;
+
+        // Obtener color de la textura usando coordenadas UV interpoladas
+        return texture.getColorAt(interpU, interpV);
     }
 }

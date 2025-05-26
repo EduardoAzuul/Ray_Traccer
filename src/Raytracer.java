@@ -1,11 +1,13 @@
-import Lights.DirectionalLight;
-import Lights.SpotLight;
+import Denoisser.Denoisser;
+import Lights.Light;
 import Lights.PointLight;
-import Materials.BlingPhongMaterial;
+import Materials.Texture;
 import Objects.*;
-import Objects.ObjObject;
+import PreBuildScenes.HunterScene;
+import PreBuildScenes.MuseumAngels;
+import PreBuildScenes.Office;
+import PreBuildScenes.MuseumAngels;
 import ResuableElements.TipicalMaterials;
-import ResuableElements.TipicalObj;
 import vectors.Vector3D;
 
 import javax.imageio.ImageIO;
@@ -24,71 +26,32 @@ public class Raytracer {
         LocalDateTime currentDateTime = LocalDateTime.now();
         LocalDateTime loadObjStart = LocalDateTime.now();
         try {
-            List<Object3D> object3DList = new ArrayList<>();
 
             // Create the camera with FOV
             Camera camera = new Camera(
                     new Vector3D(0, 0, 0),   // origin
                     new Vector3D(0, 0, 0),   // rotation
                     1.5,                    // near plane
-                    500,                    // far plane
-                    3840,                    // width
+                    600,                    // far plane
+                    4096 ,                    // width
                     2160,                    // height
                     60                      // field of view
             );
 
+            camera.setBounces(2);
             // Create the scene
             Scene scene = new Scene(camera);
 
-            // Add objects to the scene
-            String pathObj = "Objs/cube.obj";
-            File objFile = new File(pathObj);
-            if (!objFile.exists()) {
-                System.err.println("Warning: OBJ file not found at " + objFile.getAbsolutePath());
-            }
+            /**********************************************************/
+            /******************** Objects ****************************/
 
-            Vector3D color = new Vector3D(20.0, 100.0, 185.0);
-            Vector3D rotation = new Vector3D(0,0,0);
-            Vector3D position = new Vector3D(15, 0, -20);
-            Vector3D scale = new Vector3D(1.0, 1.0, 1.0);
-
-            // Add OBJ object
-            //ObjObject objObject = new ObjObject(color, rotation, position, scale, pathObj);
-            //object3DList.add(objObject);
-
-            /*pathObj = "Objs/SmallTeapot.obj";
-            color = new Vector3D(255,252,240);
-            position = new Vector3D(0,0, -30);
-            rotation = new Vector3D(0,0, 0);
-            scale = new Vector3D(8.0, 8.0, 8.0);
-            ObjObject objObject2 = new ObjObject(color, rotation, position, scale, pathObj);
-            //object3DList.add(objObject2);
-
-            pathObj = "Objs/Angle.obj";
-            rotation = new Vector3D(0,0,0);
-            position = new Vector3D(0,-20, -50);
-            objObject2 = new ObjObject(color, rotation, position, scale, pathObj);
-            object3DList.add(objObject2);*/
-
-            pathObj = "Objs/square.obj";
-            color = new Vector3D(233,31,91);
-            rotation = new Vector3D(-90,0,0);
-            position = new Vector3D(0,-20, -50);
-            scale = new Vector3D(80.0, 80.0, 80.0);
-            ObjObject objObject3 = new ObjObject(color,rotation,position,scale, pathObj);
-            object3DList.add(objObject3);
-
-
-
-
-            object3DList.add(TipicalObj.createAngel(TipicalMaterials.BRONZE));
-
-
-            // Add all objects to scene
+            List<Object3D> object3DList = MuseumAngels.getObjects();
             for (Object3D object3D : object3DList) {
                 scene.addObject(object3D);
-                System.out.println("Added object: " + object3D);
             }
+
+
+
 
             // Log the duration for loading objects
             LocalDateTime loadObjEnd = LocalDateTime.now();
@@ -98,26 +61,16 @@ public class Raytracer {
             /************************************************************/
             /********************   LIGHTS   ****************************/
 
+
             LocalDateTime loadLightsStart = LocalDateTime.now();
 
-            Vector3D lightPosition = new Vector3D(0,0,0);
-            Vector3D lightColor = new Vector3D(255,255,255);
-            Vector3D lightdirection = new Vector3D(0,0,-1);
-            SpotLight spotLight = new SpotLight(
-                    lightPosition, lightColor, 60, 2, 45, lightdirection
-            );
+            List<Light> lights = MuseumAngels.getLights();
+            for (Light light : lights) {
+                scene.addLight(light);
+            }
 
-            //scene.addLight(spotLight);
+            //scene.setLights(lights);
 
-            lightPosition = new Vector3D(10,20,-15);
-            lightColor = new Vector3D(255,255,255);
-            PointLight pointLight = new PointLight(lightPosition, lightColor, 60);
-            scene.addLight(pointLight);
-
-            lightPosition = new Vector3D(-10,20,-15);
-            lightColor = new Vector3D(0,0,255);
-            PointLight pointLight2 = new PointLight(lightPosition, lightColor, 30);
-            scene.addLight(pointLight2);
 
             // Log the duration for adding lights
             LocalDateTime loadLightsEnd = LocalDateTime.now();
@@ -128,14 +81,13 @@ public class Raytracer {
 
             LocalDateTime renderStart = LocalDateTime.now();
 
-            Vector3D lightDirection = new Vector3D(1,0,1);
-            DirectionalLight directionalLight = new DirectionalLight(lightColor, 5, lightDirection);
-            System.out.println(directionalLight.getDirection());
-            //scene.addLight(directionalLight);
-
             // Render the scene
             System.out.println("Rendering scene...");
             BufferedImage image = scene.render();
+            image = Denoisser.gaussianBlur(image);
+            /*********************** DENOISSER ********************************/
+
+
 
             // Generate a timestamp-based filename
             String filename = "scene_output.png";

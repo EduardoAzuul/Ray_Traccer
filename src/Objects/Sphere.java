@@ -1,15 +1,27 @@
 package Objects;
 
+import Materials.Material;
 import vectors.Vector3D;
 
 public class Sphere extends Object3D {
     private double radius;
+    private Material material;
 
     // Constructor
     public Sphere(Vector3D color, Vector3D rotation, Vector3D position, Vector3D scale, double radius) {
         super(color, rotation, position, scale);
         this.radius = radius;
 
+    }
+
+    @Override
+    public Material getMaterial() {
+        return material;
+    }
+
+    @Override
+    public void setMaterial(Material material) {
+        this.material = material;
     }
 
     // Get the surface area of the sphere
@@ -46,6 +58,10 @@ public class Sphere extends Object3D {
 
     public Vector3D getPosition() {
         return position;
+    }
+
+    public Vector3D getNormal(Vector3D hit) {
+        return hit.subtract(position).normalize();
     }
 
 }

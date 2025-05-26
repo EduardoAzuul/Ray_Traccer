@@ -1,6 +1,7 @@
 package Objects;
 
 import Materials.Material;
+import Materials.Texture;
 import Tools.ObjReader;
 import vectors.Vector3D;
 import Objects.WrapperBoxes.*;
@@ -29,6 +30,12 @@ public class ObjObject extends Object3D {
         rotateNormals();
         setCube();
         buildBVH();
+    }
+
+    public void setTexture(Texture texture) {
+        for (Triangle triangle : triangleList) {
+            triangle.setTexture(texture);
+        }
     }
 
     private void rotateNormals(){
