@@ -9,17 +9,34 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * A Bounding Volume Hierarchy (BVH) generator that constructs a hierarchical structure
+ * of bounding boxes for efficient spatial queries and collision detection.
+ * @author José Eduardo Moreno Paredes
+ * This implementation uses parallel processing with Fork/Join framework to optimize
+ * construction time for large sets of triangles. The BVH is built using Surface Area
+ * Heuristic (SAH) for optimal splitting decisions.
+ */
 public class BVHGenerator {
+    /** List of triangles to build the BVH from */
     private List<Triangle> triangleList;
+
+    /** Maximum depth of the BVH tree */
     private int maxBVHDepth;
+
+    /** Margin factor (percentage) to add to bounding boxes */
     private final double marginFactor = 0.05; // 5% margin for boxes
+
+    /** Maximum number of triangles allowed in a leaf node */
     private final int trianglesPerLeaf = 4;
+
+    /** Number of split positions to test along each axis */
     private final int splitCount = 8;
 
-    // Use a ForkJoinPool for parallel processing
+    /** ForkJoinPool for parallel processing of BVH construction */
     private final ForkJoinPool forkJoinPool;
 
-    // Thread-safe statistics using atomic integers
+    // Thread-safe statistics counters
     private final AtomicInteger minTrianglesInLeaf = new AtomicInteger(Integer.MAX_VALUE);
     private final AtomicInteger maxTrianglesInLeaf = new AtomicInteger(0);
     private final AtomicInteger totalLeafNodes = new AtomicInteger(0);
@@ -27,9 +44,14 @@ public class BVHGenerator {
     private final AtomicInteger maxDepthReached = new AtomicInteger(0);
     private final AtomicInteger totalNodes = new AtomicInteger(0);
 
-    // Pre-compute triangle centroids to avoid repeated calculations
+    /** Pre-computed centroids of all triangles for faster splitting */
     private Vector3D[] triangleCentroids;
 
+    /**
+     * Constructs a BVHGenerator with automatic depth calculation.
+     *
+     * @param triangleList List of triangles to build the BVH from
+     */
     public BVHGenerator(List<Triangle> triangleList) {
         this.triangleList = triangleList;
         this.maxBVHDepth = calculateOptimalDepth(triangleList.size());
@@ -37,6 +59,12 @@ public class BVHGenerator {
         precomputeCentroids();
     }
 
+    /**
+     * Constructs a BVHGenerator with specified maximum depth.
+     *
+     * @param triangleList List of triangles to build the BVH from
+     * @param maxDepth Maximum depth of the BVH tree (if <= 0, calculates optimal depth)
+     */
     public BVHGenerator(List<Triangle> triangleList, int maxDepth) {
         this.triangleList = triangleList;
         this.maxBVHDepth = maxDepth > 0 ? maxDepth : calculateOptimalDepth(triangleList.size());
@@ -44,7 +72,11 @@ public class BVHGenerator {
         precomputeCentroids();
     }
 
-
+    /**
+     * Builds the BVH structure from the provided triangles.
+     *
+     * @return The root node of the constructed BVH, or null if no triangles are present
+     */
     public BVHNode buildBVH() {
         if (triangleList == null || triangleList.isEmpty()) return null;
 
@@ -59,13 +91,12 @@ public class BVHGenerator {
         // Ensure we shut down the ForkJoinPool
         forkJoinPool.shutdown();
 
-        // Print statistics after building
-        //printBVHStatistics();
-
         return root;
     }
 
-    // Pre-compute all triangle centroids to avoid redundant calculations
+    /**
+     * Pre-computes centroids of all triangles for faster splitting decisions.
+     */
     private void precomputeCentroids() {
         triangleCentroids = new Vector3D[triangleList.size()];
         for (int i = 0; i < triangleList.size(); i++) {
@@ -73,6 +104,12 @@ public class BVHGenerator {
         }
     }
 
+    /**
+     * Calculates the optimal depth for the BVH tree based on triangle count.
+     *
+     * @param triangleCount Number of triangles in the scene
+     * @return Optimal depth for the BVH tree
+     */
     private int calculateOptimalDepth(int triangleCount) {
         int maxDepth = 16;
         int minDepth = 2;
@@ -85,17 +122,35 @@ public class BVHGenerator {
         return Math.max(minDepth, Math.min(maxDepth, estimatedDepth));
     }
 
-    // RecursiveTask for parallel BVH construction using Fork/Join framework
+    /**
+     * RecursiveTask for parallel BVH construction using Fork/Join framework.
+     */
     private class BVHBuildTask extends RecursiveTask<BVHNode> {
+        /** List of triangle indices to process in this task */
         private final List<Integer> triangleIndices;
-        private final int currentDepth;
-        private static final int SEQUENTIAL_THRESHOLD = 256; // Process small subproblems sequentially
 
+        /** Current depth in the BVH tree */
+        private final int currentDepth;
+
+        /** Threshold for sequential processing (small subproblems) */
+        private static final int SEQUENTIAL_THRESHOLD = 256;
+
+        /**
+         * Creates a new BVHBuildTask.
+         *
+         * @param triangleIndices List of triangle indices to process
+         * @param currentDepth Current depth in the BVH tree
+         */
         public BVHBuildTask(List<Integer> triangleIndices, int currentDepth) {
             this.triangleIndices = triangleIndices;
             this.currentDepth = currentDepth;
         }
 
+        /**
+         * The main computation performed by this task.
+         *
+         * @return The BVHNode constructed by this task
+         */
         @Override
         protected BVHNode compute() {
             if (triangleIndices.isEmpty()) {
@@ -109,7 +164,6 @@ public class BVHGenerator {
 
             // If we've reached max depth or have few triangles, create leaf node
             if (currentDepth >= maxBVHDepth || triangleIndices.size() <= trianglesPerLeaf) {
-                // Update leaf statistics
                 updateLeafStatistics(triangleIndices.size());
                 return new BVHLeafNode(nodeBoundingBox, new ArrayList<>(triangleIndices));
             }
@@ -134,14 +188,21 @@ public class BVHGenerator {
                 return new BVHInternalNode(nodeBoundingBox, leftChild, rightChild);
             } else {
                 // For larger tasks, compute in parallel
-                leftTask.fork(); // Submit left task to be executed asynchronously
-                BVHNode rightChild = rightTask.compute(); // Compute right task directly
-                BVHNode leftChild = leftTask.join(); // Wait for left task result
+                leftTask.fork();
+                BVHNode rightChild = rightTask.compute();
+                BVHNode leftChild = leftTask.join();
                 return new BVHInternalNode(nodeBoundingBox, leftChild, rightChild);
             }
         }
     }
 
+    /**
+     * Finds the optimal split for a set of triangles using Surface Area Heuristic.
+     *
+     * @param triangleIndices List of triangle indices to split
+     * @param nodeBoundingBox Bounding box of the current node
+     * @return Best split found, or null if no good split exists
+     */
     private BVHSplit findOptimalSplit(List<Integer> triangleIndices, Cube nodeBoundingBox) {
         Vector3D dimensions = nodeBoundingBox.getDimensions();
         Vector3D min = nodeBoundingBox.getMin();
@@ -162,7 +223,7 @@ public class BVHGenerator {
             // Skip axes with minimal length
             if (axisLength < 1e-6) continue;
 
-            // Adaptive number of splits based on triangle count to avoid excessive tests
+            // Adaptive number of splits based on triangle count
             int actualSplits = Math.min(this.splitCount, 1 + triangleIndices.size() / 10);
 
             // Test multiple split positions along the axis
@@ -174,9 +235,7 @@ public class BVHGenerator {
                 List<Integer> rightIndices = new ArrayList<>();
 
                 for (int index : triangleIndices) {
-                    // Use pre-computed centroids
                     Vector3D center = triangleCentroids[index];
-
                     if (center.getComponent(axis) <= splitValue) {
                         leftIndices.add(index);
                     } else {
@@ -221,17 +280,28 @@ public class BVHGenerator {
         return bestSplit;
     }
 
-    // Find the axis with the longest dimension
+    /**
+     * Determines the longest axis of a 3D vector.
+     *
+     * @param dimensions The dimensions to analyze
+     * @return 0 for X-axis, 1 for Y-axis, 2 for Z-axis
+     */
     private int getLongestAxis(Vector3D dimensions) {
         double x = dimensions.getX();
         double y = dimensions.getY();
         double z = dimensions.getZ();
 
-        if (x >= y && x >= z) return 0; // X-axis
-        if (y >= x && y >= z) return 1; // Y-axis
-        return 2; // Z-axis
+        if (x >= y && x >= z) return 0;
+        if (y >= x && y >= z) return 1;
+        return 2;
     }
 
+    /**
+     * Calculates the surface area of a bounding box.
+     *
+     * @param box The bounding box to measure
+     * @return Surface area of the box
+     */
     private double calculateSurfaceArea(Cube box) {
         Vector3D dimensions = box.getDimensions();
         double x = dimensions.getX();
@@ -240,29 +310,24 @@ public class BVHGenerator {
         return 2.0 * (x * y + x * z + y * z);
     }
 
+    /**
+     * Updates leaf node statistics in a thread-safe manner.
+     *
+     * @param triangleCount Number of triangles in the current leaf node
+     */
     private void updateLeafStatistics(int triangleCount) {
-        // Use atomic operations for thread safety
         minTrianglesInLeaf.updateAndGet(min -> Math.min(min, triangleCount));
         maxTrianglesInLeaf.updateAndGet(max -> Math.max(max, triangleCount));
         totalTrianglesInLeaves.addAndGet(triangleCount);
         totalLeafNodes.incrementAndGet();
     }
 
-    private void printBVHStatistics() {
-        System.out.println("\n--- BVH Statistics ---");
-        System.out.println("Total triangles: " + triangleList.size());
-        System.out.println("Total nodes: " + totalNodes.get());
-        System.out.println("Total leaf nodes: " + totalLeafNodes.get());
-        System.out.println("Maximum depth reached: " + maxDepthReached.get());
-        System.out.println("Minimum triangles in a leaf: " + minTrianglesInLeaf.get());
-        System.out.println("Maximum triangles in a leaf: " + maxTrianglesInLeaf.get());
-
-        double avgTrianglesPerLeaf = totalLeafNodes.get() > 0 ?
-                (double) totalTrianglesInLeaves.get() / totalLeafNodes.get() : 0;
-        System.out.println("Average triangles per leaf: " + String.format("%.2f", avgTrianglesPerLeaf));
-        System.out.println("----------------------");
-    }
-
+    /**
+     * Calculates a bounding box that contains all specified triangles.
+     *
+     * @param triangleIndices List of triangle indices to include
+     * @return A bounding box containing all specified triangles with margin
+     */
     private Cube calculateBoundingBox(List<Integer> triangleIndices) {
         if (triangleIndices.isEmpty()) {
             // Return a tiny default box if no triangles
@@ -316,14 +381,34 @@ public class BVHGenerator {
         return new Cube(newMin, newMax);
     }
 
-    // Helper class to store split information
+    /**
+     * Helper class to store information about a potential BVH split.
+     */
     private static class BVHSplit {
+        /** Indices of triangles in the left partition */
         List<Integer> leftIndices;
+
+        /** Indices of triangles in the right partition */
         List<Integer> rightIndices;
+
+        /** Bounding box of left partition */
         Cube leftBox;
+
+        /** Bounding box of right partition */
         Cube rightBox;
+
+        /** Cost of this split according to SAH */
         double cost;
 
+        /**
+         * Creates a new BVHSplit record.
+         *
+         * @param leftIndices Triangle indices in left partition
+         * @param rightIndices Triangle indices in right partition
+         * @param leftBox Bounding box of left partition
+         * @param rightBox Bounding box of right partition
+         * @param cost SAH cost of this split
+         */
         BVHSplit(List<Integer> leftIndices, List<Integer> rightIndices,
                  Cube leftBox, Cube rightBox, double cost) {
             this.leftIndices = leftIndices;
